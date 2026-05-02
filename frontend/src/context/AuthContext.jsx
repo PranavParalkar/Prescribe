@@ -140,6 +140,11 @@ export function AuthProvider({ children }) {
       const payload = decodeJwtPayload(token)
       const emailFromToken = payload.sub || email
 
+      // Use the authoritative role from the JWT instead of the frontend toggle.
+      // This prevents creating mismatched profiles (e.g., Patient entity for a Doctor user).
+      const backendRole = payload.role ? payload.role.toLowerCase() : role
+      role = backendRole
+
       let entityId = null
       let name = emailFromToken.split('@')[0]
       if (extra.name) name = extra.name
@@ -156,7 +161,7 @@ export function AuthProvider({ children }) {
           } catch (err) {
             if (!extra.isRegistering) {
               clearSession()
-              return { success: false, error: 'Account not found. Please sign up first.' }
+              return { success: false, error: 'Doctor profile not found. Please sign up as a Doctor first.' }
             }
             const baseName = extra.name || name || 'Doctor'
             const parts = baseName.replace(/[._-]+/g, ' ').trim().split(/\s+/).filter(Boolean)
@@ -174,7 +179,7 @@ export function AuthProvider({ children }) {
             entityId = doc.doctorId
             name = `Dr. ${doc.firstName ?? firstName} ${doc.lastName ?? lastName}`.trim()
           }
-        } else {
+        } else if (role === 'patient') {
           try {
             const pat = await getPatientByEmail(emailFromToken)
             entityId = pat.patientId
@@ -182,7 +187,7 @@ export function AuthProvider({ children }) {
           } catch (err) {
             if (!extra.isRegistering) {
               clearSession()
-              return { success: false, error: 'Account not found. Please sign up first.' }
+              return { success: false, error: 'Patient profile not found. Please sign up as a Patient first.' }
             }
             const baseName = extra.name || name || 'Patient'
             const parts = baseName.replace(/[._-]+/g, ' ').trim().split(/\s+/).filter(Boolean)
@@ -200,6 +205,9 @@ export function AuthProvider({ children }) {
             entityId = pat.patientId
             name = `${pat.firstName ?? firstName} ${pat.lastName ?? lastName}`.trim()
           }
+        } else {
+          // Medical or other roles — just use the token info
+          name = extra.name || emailFromToken.split('@')[0]
         }
       } catch (err) {
         console.warn('Could not fetch complete profile on login:', err)

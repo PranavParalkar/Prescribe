@@ -161,6 +161,7 @@ export default function UploadDocumentModal({ onClose, onUpload, uploading }) {
               <input
                 type="date"
                 value={documentDate}
+                max={new Date().toISOString().split('T')[0]}
                 onChange={e => setDocumentDate(e.target.value)}
                 className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-xl
                   focus:border-teal-500 focus:ring-2 focus:ring-teal-100 outline-none transition-all text-slate-700"

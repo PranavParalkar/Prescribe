@@ -20,10 +20,10 @@ const STEPS = [
 ];
 
 const MED_VALIDATORS = {
-  name: v => /^[a-zA-Z0-9\s\-.,/]{2,100}$/.test(v?.trim()) ? '' : 'Invalid name',
-  dosage: v => /^[a-zA-Z0-9\s\-./()]{1,50}$/.test(v?.trim()) ? '' : 'Invalid dosage',
-  frequency: v => /^[a-zA-Z0-9\s\-./()]{1,50}$/.test(v?.trim()) ? '' : 'Invalid frequency',
-  duration: v => /^[a-zA-Z0-9\s\-./()]{1,50}$/.test(v?.trim()) ? '' : 'Invalid duration',
+  name: v => v?.trim().length >= 2 && v.trim().length <= 100 ? '' : 'Name must be 2-100 characters',
+  dosage: v => v?.trim().length >= 1 && v.trim().length <= 50 ? '' : 'Dosage is required (max 50 chars)',
+  frequency: v => v?.trim().length >= 1 && v.trim().length <= 50 ? '' : 'Frequency is required (max 50 chars)',
+  duration: v => v?.trim().length >= 1 && v.trim().length <= 50 ? '' : 'Duration is required (max 50 chars)',
 };
 
 export default function UploadPrescription() {
@@ -120,12 +120,12 @@ export default function UploadPrescription() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // Prevent accidental early submit (e.g. pressing Enter on step 1/2).
-    // Only save on the final step; otherwise advance the wizard.
-    if (step <= 3) {
+    // On steps 1 and 2, just validate and advance
+    if (step < 3) {
       nextStep();
       return;
     }
+    // On step 3 (final), validate and save
     if (!validateStep(3)) return;
     setSubmitting(true);
     setSubmitError("");
@@ -527,7 +527,7 @@ export default function UploadPrescription() {
                 ))}
               </div>
 
-              {step <= 3 ? (
+              {step < 3 ? (
                 <button
                   type="button"
                   onClick={nextStep}

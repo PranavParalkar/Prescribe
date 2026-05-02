@@ -1,13 +1,17 @@
+import { useState } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { ChevronLeft, Calendar, RefreshCw, Activity } from 'lucide-react'
 import DashboardLayout from '../components/layout/DashboardLayout'
 import Badge from '../components/ui/Badge'
 import Avatar from '../components/ui/Avatar'
+import { api } from '../api/api'
 
 export default function PrescriptionDetailsPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
+  const [showForwardModal, setShowForwardModal] = useState(false)
+  const [medicalId, setMedicalId] = useState('')
 
   // Prescription is passed via route state from PatientDashboard list.
   // The rx object is already normalised by PatientDashboard's normaliseRx().
@@ -38,11 +42,19 @@ export default function PrescriptionDetailsPage() {
         </button>
         <div className="flex-1 min-w-0">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-1.5">Prescription Record</p>
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight leading-none break-all">
-          #{String(rx.id).slice(0, 8).toUpperCase()}
-            </h1>
-            <Badge status={rx.status}/>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight leading-none break-all">
+            #{String(rx.id).slice(0, 8).toUpperCase()}
+              </h1>
+              <Badge status={rx.status}/>
+            </div>
+            <button
+              onClick={() => setShowForwardModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-blue-700 transition-all self-start sm:self-auto"
+            >
+              Forward to Pharmacy
+            </button>
           </div>
           <p className="text-sm text-slate-400 mt-1.5 break-words">{rx.diagnosis}</p>
         </div>
@@ -199,6 +211,60 @@ export default function PrescriptionDetailsPage() {
           </div>
         </div>
       </div>
+
+      {/* Forward Modal */}
+      {showForwardModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            <form onSubmit={async (e) => {
+              e.preventDefault()
+              try {
+                await api.post('/api/medicals/orders/forward', {
+                  prescriptionId: rx.id,
+                  medicalId: medicalId
+                })
+                setShowForwardModal(false)
+                alert('Prescription forwarded successfully!')
+              } catch (err) {
+                console.error(err)
+                alert('Failed to forward prescription. Make sure the Medical ID is valid.')
+              }
+            }}>
+              <div className="p-6 border-b border-slate-100">
+                <h3 className="text-lg font-bold text-slate-800">Forward to Medical Store</h3>
+                <p className="text-sm text-slate-500">Enter the UUID of the verified Medical Store.</p>
+              </div>
+              <div className="p-6">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Medical Store ID</label>
+                <input
+                  type="text"
+                  required
+                  value={medicalId}
+                  onChange={(e) => setMedicalId(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                  placeholder="e.g. 123e4567-e89b-12d3-a456-426614174000"
+                />
+              </div>
+              <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+                <button
+                  type="button"
+                  onClick={() => setShowForwardModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+                >
+                  Forward
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </DashboardLayout>
   )
 }

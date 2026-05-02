@@ -62,6 +62,13 @@ async function request(method, path, body, params) {
   return await res.text()
 }
 
+export const api = {
+  get: (path, params) => request('GET', path, undefined, params).then(data => ({ data })),
+  post: (path, body, params) => request('POST', path, body, params).then(data => ({ data })),
+  put: (path, body, params) => request('PUT', path, body, params).then(data => ({ data })),
+  delete: (path, params) => request('DELETE', path, undefined, params).then(data => ({ data }))
+}
+
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 /**

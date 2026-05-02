@@ -9,6 +9,8 @@ import OAuthSuccess from './pages/OAuthSuccess'
 // Dashboard pages (all use DashboardLayout with sidebar)
 import DoctorDashboard         from './pages/DoctorDashboard'
 import PatientDashboard        from './pages/PatientDashboard'
+import PatientMedicalOrders    from './pages/PatientMedicalOrders'
+import MedicalDashboard        from './pages/MedicalDashboard'
 import UploadPrescription      from './pages/UploadPrescription'
 import PrescriptionDetailsPage from './pages/PrescriptionDetailsPage'
 import PrescriptionsList       from './pages/PrescriptionsList'
@@ -44,6 +46,8 @@ function DashboardRedirect() {
     ? <DoctorDashboard />
     : user.role === 'admin'
     ? <AdminDashboard />
+    : user.role === 'medical'
+    ? <MedicalDashboard />
     : <PatientDashboard />
 }
 
@@ -80,6 +84,9 @@ function AppRoutes() {
         }/>
         <Route path="/documents" element={
           <RequireAuth role="patient"><PatientDocumentsPage /></RequireAuth>
+        }/>
+        <Route path="/patient/medical-orders" element={
+          <RequireAuth role="patient"><PatientMedicalOrders /></RequireAuth>
         }/>
 
         {/* Shared — prescription detail (sidebar shows) */}

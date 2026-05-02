@@ -43,14 +43,50 @@ export default function Sidebar({ role }) {
         </svg>
       ),
     },
+    {
+      to: '/patient/medical-orders',
+      label: 'Pharmacy Orders',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+        </svg>
+      ),
+    },
   ]
 
-  const links = isDoctor ? doctorLinks : patientLinks
-  const activeColor = isDoctor ? 'bg-white/20 text-white shadow-sm' : 'bg-teal-600 text-white shadow-sm'
-  const hoverColor = isDoctor ? 'hover:bg-white/10 hover:text-white' : 'hover:bg-teal-50 hover:text-teal-700'
+  const medicalLinks = [
+    {
+      to: '/dashboard',
+      label: 'Orders Dashboard',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+        </svg>
+      ),
+    },
+  ]
+
+  const links = isDoctor ? doctorLinks : role === 'medical' ? medicalLinks : patientLinks
+  
+  let activeColor = 'bg-teal-600 text-white shadow-sm'
+  let hoverColor = 'hover:bg-teal-50 hover:text-teal-700'
+  let sidebarBg = 'bg-white'
+  let borderColor = 'border-slate-100'
+  let textColor = 'text-slate-500'
+  
+  if (isDoctor) {
+    activeColor = 'bg-white/20 text-white shadow-sm'
+    hoverColor = 'hover:bg-white/10 hover:text-white'
+    sidebarBg = 'bg-gradient-to-b from-navy-900 to-navy-800'
+    borderColor = 'border-navy-700'
+    textColor = 'text-white/70'
+  } else if (role === 'medical') {
+    activeColor = 'bg-blue-600 text-white shadow-sm'
+    hoverColor = 'hover:bg-blue-50 hover:text-blue-700'
+  }
 
   return (
-    <aside className={`w-56 shrink-0 flex flex-col ${isDoctor ? 'bg-gradient-to-b from-navy-900 to-navy-800' : 'bg-white'} border-r ${isDoctor ? 'border-navy-700' : 'border-slate-100'} min-h-screen`}>
+    <aside className={`w-56 shrink-0 flex flex-col ${sidebarBg} border-r ${borderColor} min-h-screen`}>
       <nav className="flex-1 py-4 px-3 flex flex-col gap-1">
         {links.map((link) => (
           <NavLink
@@ -58,7 +94,7 @@ export default function Sidebar({ role }) {
             to={link.to}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-                isActive ? activeColor : `${isDoctor ? 'text-white/70' : 'text-slate-500'} ${hoverColor}`
+                isActive ? activeColor : `${textColor} ${hoverColor}`
               }`
             }
           >
@@ -72,8 +108,8 @@ export default function Sidebar({ role }) {
       <div className="p-4">
         <div className={`rounded-xl ${isDoctor ? 'bg-white/10 border-white/20' : 'bg-slate-50 border-slate-100'} border px-3 py-3 text-center`}>
           <p className={`text-xs font-semibold ${isDoctor ? 'text-white/60' : 'text-slate-400'} uppercase tracking-wider mb-0.5`}>Mode</p>
-          <p className={`text-sm font-bold ${isDoctor ? 'text-white' : 'text-teal-600'}`}>
-            {isDoctor ? '👨‍⚕️ Doctor' : '🧑‍💼 Patient'}
+          <p className={`text-sm font-bold ${isDoctor ? 'text-white' : role === 'medical' ? 'text-blue-600' : 'text-teal-600'}`}>
+            {isDoctor ? '👨‍⚕️ Doctor' : role === 'medical' ? '🏥 Medical' : '🧑‍💼 Patient'}
           </p>
         </div>
       </div>

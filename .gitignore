@@ -2,3 +2,7 @@ backend/logs/application.log
 
 # Secrets
 .env
+
+.app
+
+backend\src\main\resources\application.yaml

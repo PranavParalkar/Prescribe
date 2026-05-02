@@ -1,27 +1,98 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { ChevronLeft, Calendar, RefreshCw, Activity } from 'lucide-react'
 import DashboardLayout from '../components/layout/DashboardLayout'
 import Badge from '../components/ui/Badge'
 import Avatar from '../components/ui/Avatar'
 import { api } from '../api/api'
+import { useAuth } from '../context/AuthContext'
+import { getPrescriptionsByPatient, getPrescriptionsByDoctor } from '../api/api'
+
+/** Normalise a backend Prescription entity into the shape the UI expects. */
+function normaliseRx(rx) {
+  const patient = rx.patient || {}
+  const doctor  = rx.doctor  || {}
+  const v = rx.currentVersion || {}
+  return {
+    id:          rx.id,
+    patientId:   patient.id || patient.patientId || '',
+    patientName: `${patient.firstName ?? ''} ${patient.lastName ?? ''}`.trim() || 'Patient',
+    doctorId:    doctor.id || doctor.doctorId || '',
+    doctorName:  `Dr. ${doctor.firstName ?? ''} ${doctor.lastName ?? ''}`.trim(),
+    specialty:   doctor.specialization || '',
+    date:        rx.createdAt ? rx.createdAt.split('T')[0] : '',
+    status:      rx.status ? rx.status.charAt(0) + rx.status.slice(1).toLowerCase() : 'Active',
+    diagnosis:   v.diagnosis || rx.diagnosis || '',
+    notes:       v.notes || rx.notes || '',
+    medicines:   ((v.medicines || rx.medicines) || []).map(m => ({
+      name:         m.medicineName || m.name || '',
+      dosage:       m.dosage       || '',
+      frequency:    m.frequency    || '',
+      duration:     m.duration     || '',
+      instructions: m.instructions || '',
+    })),
+  }
+}
 
 export default function PrescriptionDetailsPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
+  const { user } = useAuth()
   const [showForwardModal, setShowForwardModal] = useState(false)
   const [medicalId, setMedicalId] = useState('')
+  const [rx, setRx] = useState(location.state?.rx || null)
+  const [loadError, setLoadError] = useState(null)
+  const [loading, setLoading] = useState(!rx)
 
-  // Prescription is passed via route state from PatientDashboard list.
-  // The rx object is already normalised by PatientDashboard's normaliseRx().
-  const rx = location.state?.rx
+  // Fetch from API if prescription data was not passed via route state (e.g. page refresh)
+  useEffect(() => {
+    if (rx) return // already have data from route state
+
+    const fetchRx = async () => {
+      try {
+        const entityId = user?.entityId
+        if (!entityId) throw new Error('Profile not found')
+
+        let prescriptions
+        if (user?.role === 'doctor') {
+          prescriptions = await getPrescriptionsByDoctor(entityId)
+        } else {
+          const data = await getPrescriptionsByPatient(entityId)
+          prescriptions = data?.prescriptions || data || []
+        }
+
+        const match = (prescriptions || []).find(p => p.id === id)
+        if (match) {
+          setRx(normaliseRx(match))
+        } else {
+          setLoadError('Prescription not found.')
+        }
+      } catch (err) {
+        setLoadError(err.message || 'Failed to load prescription.')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchRx()
+  }, [id, rx, user?.entityId, user?.role])
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500"></div>
+        </div>
+      </DashboardLayout>
+    )
+  }
 
   if (!rx) {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center h-64 gap-3 text-slate-400">
-          <p className="text-lg font-semibold text-slate-600">Prescription not found</p>
+          <p className="text-lg font-semibold text-slate-600">{loadError || 'Prescription not found'}</p>
           <button onClick={() => navigate('/dashboard')} className="text-sm font-semibold text-teal-600 hover:underline">
             Back to dashboard
           </button>

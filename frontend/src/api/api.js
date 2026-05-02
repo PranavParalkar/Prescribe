@@ -257,10 +257,11 @@ export function getPrescriptionsByDoctor(doctorId) {
 /**
  * Revoke (deactivate) a prescription by its UUID.
  * @param {string} id - Prescription UUID
+ * @param {string} reason - Reason for revocation
  * @returns {Prescription}
  */
-export function revokePrescription(id) {
-  return request('PUT', `/api/prescriptions/${id}/revoke`)
+export function revokePrescription(id, reason = 'Revoked by doctor') {
+  return request('PUT', `/api/prescriptions/${id}/revoke`, { reason })
 }
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────

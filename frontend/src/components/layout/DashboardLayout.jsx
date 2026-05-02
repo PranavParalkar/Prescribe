@@ -17,7 +17,8 @@ import {
   Settings,
   Users,
   UserCheck,
-  ShieldAlert
+  ShieldAlert,
+  ShoppingBag
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { getSubscriptionStatus, getDoctorByEmail } from '../../api/api'
@@ -40,6 +41,7 @@ const DOCTOR_LINKS_UNVERIFIED = [
 const PATIENT_LINKS_FREE = [
   { to: '/dashboard', label: 'My Prescriptions', icon: FileText },
   { to: '/documents', label: 'My Documents', icon: Archive },
+  { to: '/patient/medical-orders', label: 'Pharmacy Orders', icon: ShoppingBag },
   { to: '/subscription', label: 'Subscription', icon: Crown },
   { to: '/profile', label: 'My Profile', icon: Settings },
 ]
@@ -47,7 +49,8 @@ const PATIENT_LINKS_FREE = [
 const PATIENT_LINKS_PRO = [
   { to: '/dashboard', label: 'My Prescriptions', icon: FileText },
   { to: '/documents', label: 'My Documents', icon: Archive },
-  { to: '/profile', label: 'My profile', icon: Settings },
+  { to: '/patient/medical-orders', label: 'Pharmacy Orders', icon: ShoppingBag },
+  { to: '/profile', label: 'My Profile', icon: Settings },
 ]
 
 const ADMIN_LINKS = [

@@ -219,7 +219,12 @@ export default function SubscriptionPage() {
 
                 <div className="pt-4 border-t border-slate-100">
                   <div className="w-full py-2.5 rounded-xl bg-slate-50 text-center text-sm font-semibold text-slate-400">
-                    {subStatus?.totalPrescriptions <= 3 ? 'Current Plan' : 'Limit Reached'}
+                    {subStatus?.subscribed
+                      ? 'Upgraded'
+                      : (subStatus?.totalPrescriptions ?? 0) >= (subStatus?.freeLimit ?? 3)
+                        ? 'Limit Reached'
+                        : 'Current Plan'
+                    }
                   </div>
                 </div>
               </div>

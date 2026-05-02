@@ -394,6 +394,7 @@ export default function ProfileSettings() {
                             id="dob"
                             name="dob"
                             value={formData.dob}
+                            max={new Date().toISOString().split('T')[0]}
                             onChange={handleChange}
                             className={`${inputCls('dob')} pl-11`}
                             required
@@ -445,6 +446,7 @@ export default function ProfileSettings() {
                             id="dob"
                             name="dob"
                             value={formData.dob}
+                            max={new Date().toISOString().split('T')[0]}
                             onChange={handleChange}
                             className={`${inputCls('dob')} pl-11`}
                           />
@@ -520,6 +522,7 @@ export default function ProfileSettings() {
               </div>
             </form>
 
+            {isDoctor && (
             <div className="mt-8 p-6 bg-red-50/30 rounded-2xl border border-red-100 flex items-center justify-between gap-4">
               <div>
                 <h4 className="text-sm font-bold text-red-900">Danger Zone</h4>
@@ -534,6 +537,7 @@ export default function ProfileSettings() {
                 Delete Account
               </button>
             </div>
+            )}
           </div>
         </div>
       </div>

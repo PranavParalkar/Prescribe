@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/api'
+import DashboardLayout from '../components/layout/DashboardLayout'
 
 export default function PatientMedicalOrders() {
   const [orders, setOrders] = useState([])
@@ -43,10 +44,11 @@ export default function PatientMedicalOrders() {
     }
   }
 
-  if (loading) return <div className="p-8">Loading your orders...</div>
+  if (loading) return <DashboardLayout><div className="p-8">Loading your orders...</div></DashboardLayout>
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
+    <DashboardLayout>
+    <div className="max-w-6xl">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-800">My Medical Orders</h1>
         <p className="text-slate-500 mt-1">Track prescriptions you have forwarded to medical stores.</p>
@@ -102,5 +104,6 @@ export default function PatientMedicalOrders() {
         )}
       </div>
     </div>
+    </DashboardLayout>
   )
 }

@@ -49,55 +49,34 @@ export function AuthProvider({ children }) {
       const payload = decodeJwtPayload(token)
       const emailFromToken = payload.sub || email
 
+      // Use the authoritative role from the JWT instead of the frontend toggle.
+      const backendRole = payload.role ? payload.role.toLowerCase() : role
+      role = backendRole
+
       let entityId = null
       let name = emailFromToken.split('@')[0]
 
       try {
-        if (role === 'doctor') {
+        if (role === 'admin') {
+          name = 'Administrator'
+        } else if (role === 'doctor') {
           try {
             const doc = await getDoctorByEmail(emailFromToken)
             entityId = doc.doctorId
             if (doc.firstName) name = `Dr. ${doc.firstName} ${doc.lastName}`.trim()
           } catch (err) {
-            // If auth user exists but doctor profile doesn't, auto-create one.
-            const base = emailFromToken.split('@')[0] || 'Doctor'
-            const parts = base.replace(/[._-]+/g, ' ').trim().split(/\s+/).filter(Boolean)
-            const firstName = parts[0] || 'Doctor'
-            const lastName = parts.slice(1).join(' ') || firstName
-
-            const doc = await createDoctor({
-              firstName,
-              lastName,
-              specialization: 'General Physician',
-              licenseNumber: `LIC-${Date.now()}`,
-              phone: '',
-              email: emailFromToken,
-            })
-            entityId = doc.doctorId
-            name = `Dr. ${doc.firstName ?? firstName} ${doc.lastName ?? lastName}`.trim()
+            // Login should not auto-create profiles — only register does that.
+            clearSession()
+            return { success: false, error: 'Doctor profile not found. Please sign up first.' }
           }
-        } else {
+        } else if (role === 'patient') {
           try {
             const pat = await getPatientByEmail(emailFromToken)
             entityId = pat.patientId
             if (pat.firstName) name = `${pat.firstName} ${pat.lastName}`.trim()
           } catch (err) {
-            // If auth user exists but patient profile doesn't, auto-create one.
-            const base = emailFromToken.split('@')[0] || 'Patient'
-            const parts = base.replace(/[._-]+/g, ' ').trim().split(/\s+/).filter(Boolean)
-            const firstName = parts[0] || 'Patient'
-            const lastName = parts.slice(1).join(' ') || firstName
-
-            const pat = await createPatient({
-              firstName,
-              lastName,
-              dob: null,
-              gender: null,
-              phone: '',
-              email: emailFromToken,
-            })
-            entityId = pat.patientId
-            name = `${pat.firstName ?? firstName} ${pat.lastName ?? lastName}`.trim()
+            clearSession()
+            return { success: false, error: 'Patient profile not found. Please sign up first.' }
           }
         }
       } catch (err) {
@@ -277,13 +256,66 @@ export function AuthProvider({ children }) {
     }
   }
 
+  /**
+   * Handle OAuth callback — token is already obtained from the redirect URL.
+   * Reads the authoritative role from the JWT and fetches the matching profile.
+   */
+  const oauthLogin = async (token, roleHint = 'patient') => {
+    try {
+      localStorage.setItem('prescribe_token', token)
+      const payload = decodeJwtPayload(token)
+      const email = payload.sub
+      if (!email) throw new Error('Invalid token')
+
+      // Use JWT role claim as authoritative source instead of sessionStorage
+      const role = payload.role ? payload.role.toLowerCase() : roleHint
+
+      let entityId = null
+      let name = email.split('@')[0]
+
+      try {
+        if (role === 'doctor') {
+          const doc = await getDoctorByEmail(email)
+          entityId = doc.doctorId
+          if (doc.firstName) name = `Dr. ${doc.firstName} ${doc.lastName}`.trim()
+        } else if (role === 'patient') {
+          const pat = await getPatientByEmail(email)
+          entityId = pat.patientId
+          if (pat.firstName) name = `${pat.firstName} ${pat.lastName}`.trim()
+        } else if (role === 'admin') {
+          name = 'Administrator'
+        }
+      } catch (err) {
+        // Profile not found — user needs to register first
+        clearSession()
+        return { success: false, error: 'Profile not found. Please sign up first.' }
+      }
+
+      const profile = { email, role, name, entityId }
+      saveSession(token, profile)
+      setUser(profile)
+      return { success: true }
+    } catch (err) {
+      clearSession()
+      return { success: false, error: err.message || 'OAuth login failed.' }
+    }
+  }
+
   const logout = () => {
     clearSession()
     setUser(null)
   }
 
+  const updateUser = (updates) => {
+    setUser(prev => {
+      const updated = { ...prev, ...updates }
+      localStorage.setItem('prescribe_user', JSON.stringify(updated))
+      return updated
+    })
+  }
+
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, sendOtp, verifyOtpLogin }}>
+    <AuthContext.Provider value={{ user, login, register, logout, sendOtp, verifyOtpLogin, oauthLogin, updateUser }}>
       {children}
     </AuthContext.Provider>
   )

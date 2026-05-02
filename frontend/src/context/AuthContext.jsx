@@ -122,6 +122,12 @@ export function AuthProvider({ children }) {
       // Use the authoritative role from the JWT instead of the frontend toggle.
       // This prevents creating mismatched profiles (e.g., Patient entity for a Doctor user).
       const backendRole = payload.role ? payload.role.toLowerCase() : role
+      
+      if (extra.isRegistering && backendRole !== role.toLowerCase()) {
+        clearSession()
+        return { success: false, error: `This email is already registered as a ${backendRole.toUpperCase()}. Please use a different email or log in.` }
+      }
+      
       role = backendRole
 
       let entityId = null
@@ -184,8 +190,25 @@ export function AuthProvider({ children }) {
             entityId = pat.patientId
             name = `${pat.firstName ?? firstName} ${pat.lastName ?? lastName}`.trim()
           }
+        } else if (role === 'medical') {
+          try {
+            const med = await getMedicalProfile()
+            entityId = med.medicalId
+            name = med.storeName || emailFromToken.split('@')[0]
+          } catch (err) {
+            if (!extra.isRegistering) {
+              clearSession()
+              return { success: false, error: 'Medical profile not found. Please sign up as a Medical Store first.' }
+            }
+            const med = await registerMedical({
+              storeName: extra.name || 'Medical Store',
+              licenseNumber: extra.licenseNumber || `LIC-${Date.now()}`
+            })
+            entityId = med.medicalId
+            name = med.storeName || 'Medical Store'
+          }
         } else {
-          // Medical or other roles — just use the token info
+          // Admin or other roles — just use the token info
           name = extra.name || emailFromToken.split('@')[0]
         }
       } catch (err) {

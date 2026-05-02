@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { getAdminDoctors } from '../api/api'
+import { getAdminDoctors, deleteAdminDoctor } from '../api/api'
 import DashboardLayout from '../components/layout/DashboardLayout'
-import { Stethoscope, CheckCircle2, XCircle } from 'lucide-react'
+import { Stethoscope, CheckCircle2, XCircle, Trash2 } from 'lucide-react'
 
 export default function AdminDoctorsPage() {
   const [doctors, setDoctors] = useState([])
@@ -21,6 +21,16 @@ export default function AdminDoctorsPage() {
       setError(err.message || 'Failed to fetch doctors')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDelete = async (doctorId) => {
+    if (!window.confirm("Are you sure you want to delete this doctor? This action cannot be undone.")) return;
+    try {
+      await deleteAdminDoctor(doctorId)
+      setDoctors(prev => prev.filter(d => d.doctorId !== doctorId))
+    } catch (err) {
+      alert(err.message || 'Failed to delete doctor')
     }
   }
 
@@ -105,6 +115,15 @@ export default function AdminDoctorsPage() {
                 </h3>
                 <p className="text-sm font-semibold text-teal-600 mb-2">{doctor.specialization || 'General Physician'}</p>
                 <p className="text-xs text-slate-500 mb-5">ID: {doctor.doctorId}</p>
+              </div>
+              <div className="bg-slate-50 px-6 py-3 border-t border-slate-100 flex justify-end">
+                <button 
+                  onClick={() => handleDelete(doctor.doctorId)}
+                  className="flex items-center gap-1.5 text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete
+                </button>
               </div>
             </div>
           ))}

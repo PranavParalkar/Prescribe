@@ -8,6 +8,7 @@ import com.spring.boot.super30.backend.medical.dto.MedicalRespondRequest;
 import com.spring.boot.super30.backend.medical.dto.MedicalResponse;
 import com.spring.boot.super30.backend.medical.service.MedicalOrderService;
 import com.spring.boot.super30.backend.medical.service.MedicalService;
+import com.spring.boot.super30.backend.security.service.CustomUserDetails;
 import com.spring.boot.super30.backend.shared.entity.User;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,55 +30,55 @@ public class MedicalController {
     @PostMapping("/register")
     public ResponseEntity<MedicalResponse> registerMedical(
             @Valid @RequestBody MedicalRegistrationRequest request,
-            @AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(medicalService.registerMedical(request, user));
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(medicalService.registerMedical(request, userDetails.getUser()));
     }
 
     @GetMapping("/profile")
     public ResponseEntity<MedicalResponse> getMedicalProfile(
-            @AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(medicalService.getMedicalProfile(user));
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(medicalService.getMedicalProfile(userDetails.getUser()));
     }
 
     @PostMapping("/orders/forward")
     public ResponseEntity<MedicalOrderResponse> forwardPrescription(
             @Valid @RequestBody MedicalOrderRequest request,
-            @AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(medicalOrderService.forwardPrescription(request, user));
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(medicalOrderService.forwardPrescription(request, userDetails.getUser()));
     }
 
     @GetMapping("/orders/medical")
     public ResponseEntity<List<MedicalOrderResponse>> getOrdersForMedical(
-            @AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(medicalOrderService.getOrdersForMedical(user));
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(medicalOrderService.getOrdersForMedical(userDetails.getUser()));
     }
 
     @GetMapping("/orders/patient")
     public ResponseEntity<List<MedicalOrderResponse>> getOrdersForPatient(
-            @AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(medicalOrderService.getOrdersForPatient(user));
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(medicalOrderService.getOrdersForPatient(userDetails.getUser()));
     }
 
     @PostMapping("/orders/{orderId}/respond")
     public ResponseEntity<MedicalOrderResponse> respondToOrder(
             @PathVariable UUID orderId,
             @Valid @RequestBody MedicalRespondRequest request,
-            @AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(medicalOrderService.respondToOrder(orderId, request, user));
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(medicalOrderService.respondToOrder(orderId, request, userDetails.getUser()));
     }
 
     @PostMapping("/orders/{orderId}/accept")
     public ResponseEntity<MedicalOrderResponse> acceptOrder(
             @PathVariable UUID orderId,
-            @AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(medicalOrderService.acceptOrder(orderId, user));
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(medicalOrderService.acceptOrder(orderId, userDetails.getUser()));
     }
 
     @PostMapping("/orders/{orderId}/complete")
     public ResponseEntity<MedicalOrderResponse> completeOrder(
             @PathVariable UUID orderId,
             @Valid @RequestBody MedicalCompleteRequest request,
-            @AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(medicalOrderService.completeOrder(orderId, request, user));
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(medicalOrderService.completeOrder(orderId, request, userDetails.getUser()));
     }
 }

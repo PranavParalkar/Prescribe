@@ -132,6 +132,8 @@ public class AuthController {
                 userRole = com.spring.boot.super30.backend.shared.enums.UserRole.DOCTOR;
             } else if (request.getRole() != null && request.getRole().equalsIgnoreCase("admin")) {
                 userRole = com.spring.boot.super30.backend.shared.enums.UserRole.ADMIN;
+            } else if (request.getRole() != null && request.getRole().equalsIgnoreCase("medical")) {
+                userRole = com.spring.boot.super30.backend.shared.enums.UserRole.MEDICAL;
             }
             user.setRole(userRole); 
             user.setPasswordHash(passwordEncoder.encode(java.util.UUID.randomUUID().toString())); // dummy password

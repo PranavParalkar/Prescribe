@@ -182,6 +182,12 @@ public class PrescriptionService {
                     .collect(Collectors.toList());
         }
 
+        public PrescriptionResponse getPrescriptionById(UUID id) {
+            Prescription prescription = prescriptionRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Prescription not found", "PRESCRIPTION_NOT_FOUND"));
+            return convertToResponse(prescription);
+        }
+
         private PrescriptionResponse convertToResponse(Prescription rx) {
             PrescriptionPatientInfo patientInfo = PrescriptionPatientInfo.builder()
                     .patientId(rx.getPatient().getPatientId())

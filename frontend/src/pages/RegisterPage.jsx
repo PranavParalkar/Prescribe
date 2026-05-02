@@ -9,6 +9,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [specialty, setSpecialty] = useState('')
   const [licenseFile, setLicenseFile] = useState(null)
+  const [licenseNumber, setLicenseNumber] = useState('')
   
   const [step, setStep] = useState('form') // 'form' | 'otp'
   const [otpCode, setOtpCode] = useState('')
@@ -20,6 +21,7 @@ export default function RegisterPage() {
   const navigate = useNavigate()
 
   const isDoctor = role === 'doctor'
+  const isMedical = role === 'medical'
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -35,7 +37,7 @@ export default function RegisterPage() {
         setError(result.error)
       }
     } else {
-      const result = await verifyOtpLogin(email, otpCode, role, { name, specialty, isRegistering: true })
+      const result = await verifyOtpLogin(email, otpCode, role, { name, specialty, licenseNumber, isRegistering: true })
       
       if (result.success) {
         if (isDoctor && licenseFile && result.profile.entityId) {
@@ -114,6 +116,7 @@ export default function RegisterPage() {
             {[
               { key: "doctor", label: "Doctor" },
               { key: "patient", label: "Patient" },
+              { key: "medical", label: "Medical Store" },
             ].map(({ key, label }) => (
               <button
                 key={key}
@@ -136,13 +139,13 @@ export default function RegisterPage() {
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-slate-700">
-                Full name
+                {isMedical ? "Store Name" : "Full name"}
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder={isDoctor ? "Dr. John Smith" : "Your full name"}
+                placeholder={isDoctor ? "Dr. John Smith" : isMedical ? "My Pharmacy" : "Your full name"}
                 required
                 className={inputCls}
               />
@@ -188,6 +191,22 @@ export default function RegisterPage() {
                     <option key={s}>{s}</option>
                   ))}
                 </select>
+              </div>
+            )}
+
+            {isMedical && step === 'form' && (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-slate-700">
+                  License Number
+                </label>
+                <input
+                  type="text"
+                  value={licenseNumber}
+                  onChange={(e) => setLicenseNumber(e.target.value)}
+                  placeholder="e.g. LIC-12345678"
+                  required
+                  className={inputCls}
+                />
               </div>
             )}
 

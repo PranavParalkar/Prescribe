@@ -23,6 +23,7 @@ public class PatientController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('PATIENT', 'ADMIN')")
     public PatientResponse createPatient(@RequestBody CreatePatientRequest request) {
         log.info("Received request to create patient: {} {}", request.getFirstName(), request.getLastName());
         PatientResponse response = patientService.createPatient(request);

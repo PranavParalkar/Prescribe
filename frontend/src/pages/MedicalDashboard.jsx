@@ -124,12 +124,21 @@ export default function MedicalDashboard() {
                   </td>
                   <td className="p-4 text-right">
                     {order.status === 'REQUESTED' && (
-                      <button
-                        onClick={() => handleRespondClick(order)}
-                        className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        Respond with Quote
-                      </button>
+                      <div className="flex justify-end gap-2">
+                        <a
+                          href={`/prescription/${order.prescriptionId}`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors"
+                        >
+                          View Prescription
+                        </a>
+                        <button
+                          onClick={() => handleRespondClick(order)}
+                          className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          Respond with Quote
+                        </button>
+                      </div>
                     )}
                     {order.status === 'ACCEPTED' && (
                       <button

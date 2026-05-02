@@ -1,36 +1,36 @@
 import { useState, useEffect } from 'react'
-import { getAdminPatients, deleteAdminPatient } from '../api/api'
+import { getAdminMedicals, deleteAdminMedical } from '../api/api'
 import DashboardLayout from '../components/layout/DashboardLayout'
-import { Users, CheckCircle2, Trash2 } from 'lucide-react'
+import { Store, CheckCircle2, Trash2 } from 'lucide-react'
 
-export default function AdminPatientsPage() {
-  const [patients, setPatients] = useState([])
+export default function AdminMedicalsPage() {
+  const [medicals, setMedicals] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    fetchPatients()
+    fetchMedicals()
   }, [])
 
-  const fetchPatients = async () => {
+  const fetchMedicals = async () => {
     try {
       setLoading(true)
-      const data = await getAdminPatients()
-      setPatients(data)
+      const data = await getAdminMedicals()
+      setMedicals(data)
     } catch (err) {
-      setError(err.message || 'Failed to fetch patients')
+      setError(err.message || 'Failed to fetch medical stores')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleDelete = async (patientId) => {
-    if (!window.confirm("Are you sure you want to delete this patient? This action cannot be undone.")) return;
+  const handleDelete = async (medicalId) => {
+    if (!window.confirm("Are you sure you want to delete this medical store? This action cannot be undone.")) return;
     try {
-      await deleteAdminPatient(patientId)
-      setPatients(prev => prev.filter(p => p.patientId !== patientId))
+      await deleteAdminMedical(medicalId)
+      setMedicals(prev => prev.filter(m => m.medicalId !== medicalId))
     } catch (err) {
-      alert(err.message || 'Failed to delete patient')
+      alert(err.message || 'Failed to delete medical store')
     }
   }
 
@@ -42,7 +42,7 @@ export default function AdminPatientsPage() {
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <p className="text-slate-500 font-medium">Loading patients...</p>
+          <p className="text-slate-500 font-medium">Loading medical stores...</p>
         </div>
       </DashboardLayout>
     )
@@ -59,7 +59,7 @@ export default function AdminPatientsPage() {
             <h3 className="text-lg font-bold text-slate-900 mb-2">Error Loading Data</h3>
             <p className="text-sm text-slate-600">{error}</p>
             <button 
-              onClick={fetchPatients}
+              onClick={fetchMedicals}
               className="mt-6 w-full px-4 py-2 bg-navy-700 text-white rounded-xl hover:bg-navy-800 transition-colors font-semibold"
             >
               Try Again
@@ -75,47 +75,46 @@ export default function AdminPatientsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <Users className="w-6 h-6 text-teal-500" />
-            Registered Patients
+            <Store className="w-6 h-6 text-teal-500" />
+            Registered Medical Stores
           </h1>
-          <p className="text-sm text-slate-500 mt-1">View all patients in the system</p>
+          <p className="text-sm text-slate-500 mt-1">View all medical stores in the system</p>
         </div>
         <div className="bg-teal-50 border border-teal-100 text-teal-700 px-4 py-2 rounded-lg font-semibold text-sm shadow-sm">
-          {patients.length} Total Patient{patients.length !== 1 ? 's' : ''}
+          {medicals.length} Total Store{medicals.length !== 1 ? 's' : ''}
         </div>
       </div>
 
-      {patients.length === 0 ? (
+      {medicals.length === 0 ? (
         <div className="bg-white rounded-2xl shadow-elev-2 border border-slate-100 p-16 text-center">
           <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 className="w-10 h-10 text-emerald-500" />
           </div>
-          <h3 className="text-xl font-bold text-slate-900 mb-2">No Patients Found!</h3>
-          <p className="text-slate-500 text-sm">There are currently no patients registered in the system.</p>
+          <h3 className="text-xl font-bold text-slate-900 mb-2">No Medical Stores Found!</h3>
+          <p className="text-slate-500 text-sm">There are currently no medical stores registered in the system.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 pb-8">
-          {patients.map(patient => (
-            <div key={patient.patientId} className="bg-white rounded-2xl shadow-elev-2 border border-slate-100 overflow-hidden flex flex-col transition-all hover:shadow-elev-3 hover:border-teal-100 group">
+          {medicals.map(store => (
+            <div key={store.id} className="bg-white rounded-2xl shadow-elev-2 border border-slate-100 overflow-hidden flex flex-col transition-all hover:shadow-elev-3 hover:border-teal-100 group">
               <div className="p-6 flex-1">
                 <div className="flex justify-between items-start mb-4">
                   <div className="w-12 h-12 rounded-xl bg-navy-50 flex items-center justify-center text-navy-700 font-bold text-lg group-hover:scale-110 group-hover:bg-teal-50 group-hover:text-teal-700 transition-all">
-                    {patient.firstName?.[0] || 'P'}
+                    {store.storeName?.[0] || 'M'}
                   </div>
                   <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-slate-50 text-slate-700 border border-slate-200">
-                    Patient
+                    {store.status || 'Verified'}
                   </span>
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 line-clamp-1">
-                  {patient.firstName} {patient.lastName}
+                  {store.storeName}
                 </h3>
-                <p className="text-sm font-semibold text-teal-600 mb-2">{patient.email}</p>
-                <p className="text-xs text-slate-500 mb-1">Phone: {patient.phone}</p>
-                <p className="text-xs text-slate-500 mb-5">ID: {patient.patientId}</p>
+                <p className="text-xs text-slate-500 mb-1">License: {store.licenseNumber}</p>
+                <p className="text-xs text-slate-500 mb-5">ID: {store.medicalId}</p>
               </div>
               <div className="bg-slate-50 px-6 py-3 border-t border-slate-100 flex justify-end">
                 <button 
-                  onClick={() => handleDelete(patient.patientId)}
+                  onClick={() => handleDelete(store.medicalId)}
                   className="flex items-center gap-1.5 text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors"
                 >
                   <Trash2 className="w-3.5 h-3.5" />

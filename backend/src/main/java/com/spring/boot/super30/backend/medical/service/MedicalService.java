@@ -46,6 +46,12 @@ public class MedicalService {
         return mapToResponse(medical);
     }
 
+    public java.util.List<MedicalResponse> getAllMedicals() {
+        return medicalRepository.findAll().stream()
+                .map(this::mapToResponse)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
     private MedicalResponse mapToResponse(Medical medical) {
         MedicalResponse response = new MedicalResponse();
         response.setId(medical.getId());
@@ -54,5 +60,12 @@ public class MedicalService {
         response.setLicenseNumber(medical.getLicenseNumber());
         response.setStatus(medical.getStatus());
         return response;
+    }
+
+    @Transactional
+    public void deleteMedical(String medicalId) {
+        Medical medical = medicalRepository.findByMedicalId(medicalId)
+                .orElseThrow(() -> new RuntimeException("Medical profile not found"));
+        medicalRepository.delete(medical);
     }
 }

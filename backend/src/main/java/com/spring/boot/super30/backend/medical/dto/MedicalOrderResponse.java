@@ -12,6 +12,8 @@ public class MedicalOrderResponse {
     private UUID prescriptionId;
     private UUID patientId;
     private UUID medicalId;
+    private String storeName;
+    private String medicalIdString;
     private MedicalOrderStatus status;
     private String availableItems;
     private Double totalCost;

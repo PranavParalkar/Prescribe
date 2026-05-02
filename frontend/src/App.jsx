@@ -21,6 +21,7 @@ import ProfileSettings       from './pages/ProfileSettings'
 import AdminDashboard          from './pages/AdminDashboard'
 import AdminDoctorsPage        from './pages/AdminDoctorsPage'
 import AdminPatientsPage       from './pages/AdminPatientsPage'
+import AdminMedicalsPage       from './pages/AdminMedicalsPage'
 
 // ── Guards ────────────────────────────────────────────────────
 function RequireAuth({ role, children }) {
@@ -106,6 +107,9 @@ function AppRoutes() {
         }/>
         <Route path="/admin/patients" element={
           <RequireAuth role="admin"><AdminPatientsPage /></RequireAuth>
+        }/>
+        <Route path="/admin/medicals" element={
+          <RequireAuth role="admin"><AdminMedicalsPage /></RequireAuth>
         }/>
 
         {/* Legacy + catch-all → /login */}

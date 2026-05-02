@@ -151,6 +151,8 @@ public class MedicalOrderService {
         response.setPrescriptionId(order.getPrescription().getId());
         response.setPatientId(order.getPatient().getId());
         response.setMedicalId(order.getMedical().getId());
+        response.setStoreName(order.getMedical().getStoreName());
+        response.setMedicalIdString(order.getMedical().getMedicalId());
         response.setStatus(order.getStatus());
         response.setAvailableItems(order.getAvailableItems());
         response.setTotalCost(order.getTotalCost());

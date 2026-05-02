@@ -1,5 +1,5 @@
 import { createContext, useContext, useState } from 'react'
-import { authLogin, authRegister, createDoctor, createPatient, getDoctorByEmail, getPatientByEmail, sendAuthOtp, verifyAuthOtp } from '../api/api'
+import { authLogin, authRegister, createDoctor, createPatient, getDoctorByEmail, getPatientByEmail, sendAuthOtp, verifyAuthOtp, registerMedical, getMedicalProfile } from '../api/api'
 
 const AuthContext = createContext(null)
 

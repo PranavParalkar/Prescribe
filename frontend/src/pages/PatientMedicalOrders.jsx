@@ -66,10 +66,13 @@ export default function PatientMedicalOrders() {
                 <div>
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="font-semibold text-slate-800">Order #{order.id.split('-')[0]}</h3>
+                    <span className="text-sm font-medium text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md">{order.storeName || 'Unknown Store'}</span>
                     {getStatusBadge(order.status)}
                   </div>
                   <p className="text-sm text-slate-500 mb-1">
                     <span className="font-medium text-slate-700">Date:</span> {new Date(order.createdAt).toLocaleDateString()}
+                    <span className="mx-2">•</span>
+                    <span className="font-medium text-slate-700">Store ID:</span> {order.medicalIdString || order.medicalId}
                   </p>
                   {order.availableItems && (
                     <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-100 text-sm">

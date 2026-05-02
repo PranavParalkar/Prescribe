@@ -5,6 +5,8 @@ import com.spring.boot.super30.backend.doctor.service.DoctorService;
 import com.spring.boot.super30.backend.document.service.S3StorageService;
 import com.spring.boot.super30.backend.patient.dto.PatientResponse;
 import com.spring.boot.super30.backend.patient.service.PatientService;
+import com.spring.boot.super30.backend.medical.dto.MedicalResponse;
+import com.spring.boot.super30.backend.medical.service.MedicalService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +25,7 @@ public class AdminController {
 
     private final DoctorService doctorService;
     private final PatientService patientService;
+    private final MedicalService medicalService;
     private final S3StorageService s3StorageService;
 
     @GetMapping("/doctors/pending")
@@ -42,6 +45,12 @@ public class AdminController {
     public ResponseEntity<List<PatientResponse>> getAllPatients() {
         log.info("Admin requesting all patients list");
         return ResponseEntity.ok(patientService.getAllPatients());
+    }
+
+    @GetMapping("/medicals")
+    public ResponseEntity<List<MedicalResponse>> getAllMedicals() {
+        log.info("Admin requesting all medical stores list");
+        return ResponseEntity.ok(medicalService.getAllMedicals());
     }
 
     @PostMapping("/doctors/{doctorId}/approve")
@@ -67,5 +76,26 @@ public class AdminController {
         }
         String url = s3StorageService.generateViewUrl(doctor.getLicenseDocumentUrl(), null);
         return ResponseEntity.ok(Map.of("url", url));
+    }
+
+    @DeleteMapping("/doctors/{doctorId}")
+    public ResponseEntity<Void> deleteDoctor(@PathVariable String doctorId) {
+        log.info("Admin deleting doctor: {}", doctorId);
+        doctorService.deleteDoctor(doctorId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/patients/{patientId}")
+    public ResponseEntity<Void> deletePatient(@PathVariable String patientId) {
+        log.info("Admin deleting patient: {}", patientId);
+        patientService.deletePatientAccount(patientId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/medicals/{medicalId}")
+    public ResponseEntity<Void> deleteMedical(@PathVariable String medicalId) {
+        log.info("Admin deleting medical store: {}", medicalId);
+        medicalService.deleteMedical(medicalId);
+        return ResponseEntity.noContent().build();
     }
 }

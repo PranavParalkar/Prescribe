@@ -99,5 +99,12 @@ public class PrescriptionController {
         return prescriptionService.getDoctorPrescriptions(doctorId);
     }
 
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('PATIENT', 'DOCTOR', 'ADMIN', 'MEDICAL')")
+    @Auditable(action = "VIEW_PRESCRIPTION", resourceType = "PRESCRIPTION")
+    public ResponseEntity<PrescriptionResponse> getPrescriptionById(@PathVariable UUID id) {
+        log.info("Fetching prescription by ID: {}", id);
+        return ResponseEntity.ok(prescriptionService.getPrescriptionById(id));
+    }
 }
 

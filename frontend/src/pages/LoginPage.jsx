@@ -114,6 +114,7 @@ export default function LoginPage() {
             {[
               { key: "doctor", label: "Doctor" },
               { key: "patient", label: "Patient" },
+              { key: "medical", label: "Medical Store" },
             ].map(({ key, label }) => (
               <button
                 key={key}
@@ -144,7 +145,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={
-                  role === 'doctor' ? "doctor@prescribe.app" : "patient@prescribe.app"
+                  role === 'doctor' ? "doctor@prescribe.app" : role === 'medical' ? "store@prescribe.app" : "patient@prescribe.app"
                 }
                 required
                 disabled={step === 'otp'}

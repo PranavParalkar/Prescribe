@@ -57,45 +57,61 @@ const ADMIN_LINKS = [
   { to: '/dashboard', label: 'Pending Requests', icon: ShieldAlert },
   { to: '/admin/doctors', label: 'Doctors', icon: Stethoscope },
   { to: '/admin/patients', label: 'Patients', icon: Users },
+  { to: '/admin/medicals', label: 'Medical Stores', icon: ShoppingBag },
 ]
 
 export default function DashboardLayout({ children }) {
-  const { user, logout } = useAuth()
+  const { user, logout, updateUser } = useAuth()
   const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [isSubscribed, setIsSubscribed] = useState(false)
-  const [doctorVerified, setDoctorVerified] = useState(null)
+  
   const isDoctor = user?.role === 'doctor'
   const isAdmin = user?.role === 'admin'
+  const isPatient = user?.role === 'patient'
+
+  const isSubscribed = user?.isSubscribed === true
+  const doctorVerified = user?.doctorVerified === true
 
   // Determine sidebar links based on role + verification
-  let links
+  let links = PATIENT_LINKS_FREE
   if (isAdmin) {
     links = ADMIN_LINKS
   } else if (isDoctor) {
-    links = doctorVerified === true ? DOCTOR_LINKS : DOCTOR_LINKS_UNVERIFIED
-  } else {
+    links = doctorVerified ? DOCTOR_LINKS : DOCTOR_LINKS_UNVERIFIED
+  } else if (isPatient) {
     links = isSubscribed ? PATIENT_LINKS_PRO : PATIENT_LINKS_FREE
+  } else {
+    links = [] // default empty for other roles like medical store
   }
 
   // Fetch subscription status for patient users
   useEffect(() => {
-    if (user?.role === 'patient' && user?.entityId) {
+    if (isPatient && user?.entityId) {
       getSubscriptionStatus(user.entityId)
-        .then(data => setIsSubscribed(data?.subscribed === true))
+        .then(data => {
+          const subscribed = data?.subscribed === true;
+          if (user.isSubscribed !== subscribed) {
+            updateUser({ isSubscribed: subscribed })
+          }
+        })
         .catch(() => {})
     }
-  }, [user?.role, user?.entityId])
+  }, [isPatient, user?.entityId, user?.isSubscribed, updateUser])
 
   // Fetch doctor verification status
   useEffect(() => {
-    if (user?.role === 'doctor' && user?.email) {
+    if (isDoctor && user?.email) {
       getDoctorByEmail(user.email)
-        .then(doc => setDoctorVerified(doc?.status === 'VERIFIED'))
-        .catch(() => setDoctorVerified(false))
+        .then(doc => {
+          const verified = doc?.status === 'VERIFIED';
+          if (user.doctorVerified !== verified) {
+            updateUser({ doctorVerified: verified })
+          }
+        })
+        .catch(() => {})
     }
-  }, [user?.role, user?.email])
+  }, [isDoctor, user?.email, user?.doctorVerified, updateUser])
 
   // Close mobile menu on route change
   useEffect(() => {

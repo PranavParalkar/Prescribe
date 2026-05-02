@@ -114,7 +114,7 @@ export default function PrescriptionsList() {
                 onChange={e => setStatusFilter(e.target.value)}
                 className="appearance-none pl-7 pr-7 py-2 text-xs border border-slate-200 rounded-lg outline-none focus:border-teal-500 bg-surface-1 text-slate-600 cursor-pointer hover:border-slate-300 transition-colors w-full"
               >
-                {['All', 'Active', 'Expired', 'Pending'].map(s => <option key={s}>{s}</option>)}
+                {['All', 'Active', 'Revoked'].map(s => <option key={s}>{s}</option>)}
               </select>
               <svg className="absolute right-2 w-3 h-3 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
             </div>

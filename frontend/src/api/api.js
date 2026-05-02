@@ -182,6 +182,22 @@ export function getAdminPatients() {
   return request('GET', '/api/admin/patients')
 }
 
+export function getAdminMedicals() {
+  return request('GET', '/api/admin/medicals')
+}
+
+export function deleteAdminDoctor(doctorId) {
+  return request('DELETE', `/api/admin/doctors/${encodeURIComponent(doctorId)}`)
+}
+
+export function deleteAdminPatient(patientId) {
+  return request('DELETE', `/api/admin/patients/${encodeURIComponent(patientId)}`)
+}
+
+export function deleteAdminMedical(medicalId) {
+  return request('DELETE', `/api/admin/medicals/${encodeURIComponent(medicalId)}`)
+}
+
 export function getDoctorLicenseUrl(doctorId) {
   return request('GET', `/api/admin/doctors/${encodeURIComponent(doctorId)}/license-url`)
 }
@@ -257,10 +273,10 @@ export function getPrescriptionsByDoctor(doctorId) {
 /**
  * Revoke (deactivate) a prescription by its UUID.
  * @param {string} id - Prescription UUID
- * @param {string} reason - Reason for revocation
+ * @param {string} reason - RevokeReason enum: MEDICATION_CHANGE | ERROR | PATIENT_REQUEST | ADVERSE_REACTION | DUPLICATE | OTHER
  * @returns {Prescription}
  */
-export function revokePrescription(id, reason = 'Revoked by doctor') {
+export function revokePrescription(id, reason = 'OTHER') {
   return request('PUT', `/api/prescriptions/${id}/revoke`, { reason })
 }
 
@@ -428,4 +444,14 @@ export function getPendingOtp(patientId) {
  */
 export function verifyAccessOtp(doctorId, data) {
   return request('POST', '/api/access/verify-otp', data, { doctorId })
+}
+
+// ─── Medical Store ──────────────────────────────────────────────────────────
+
+export function registerMedical(data) {
+  return request('POST', '/api/medicals/register', data)
+}
+
+export function getMedicalProfile() {
+  return request('GET', '/api/medicals/profile')
 }

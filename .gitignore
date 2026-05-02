@@ -1,0 +1,4 @@
+backend/logs/application.log
+
+# Secrets
+.env

@@ -1,0 +1,87 @@
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+/* ── Tailwind v4 Design Tokens ──────────────────────────────── */
+/* All tokens inside @theme become real Tailwind utility classes  */
+/* e.g. bg-navy-900, shadow-elev-3, text-teal-500, etc.          */
+@theme {
+ 
+  /* Teal/Cyan palette — primary identity color */
+  --color-navy-950: #006b7a;
+  --color-navy-900: #007a8a;
+  --color-navy-800: #008a9a;
+  --color-navy-750: #009aaa;
+  --color-navy-700: #00aaba;
+  --color-navy-600: #00baca;
+  --color-navy-500: #1ac5d5;
+  --color-navy-400: #4dd4e0;
+  --color-navy-300: #80e3eb;
+  --color-navy-200: #b3f1f6;
+  --color-navy-100: #d9f8fb;
+  --color-navy-50:  #f0fcfd;
+
+  /* Teal accent */
+  --color-teal-900: #006b7a;
+  --color-teal-800: #007a8a;
+  --color-teal-700: #008a9a;
+  --color-teal-600: #00aaba;
+  --color-teal-500: #1ac5d5;
+  --color-teal-400: #4dd4e0;
+  --color-teal-300: #80e3eb;
+  --color-teal-200: #b3f1f6;
+  --color-teal-100: #d9f8fb;
+  --color-teal-50:  #f0fcfd;
+
+  /* Surface hierarchy — bg → card → elevated */
+  --color-surface-bg: #fafeff;
+  --color-surface-1:  #ffffff;
+  --color-surface-2:  #ffffff;
+
+  /* 4-Level Elevation Shadow System */
+  --shadow-elev-0: none;
+  --shadow-elev-1: 0 1px 2px rgba(0,147,179,0.03), 0 1px 4px rgba(0,147,179,0.03);
+  --shadow-elev-2: 0 2px 8px rgba(0,147,179,0.05), 0 1px 2px rgba(0,147,179,0.03);
+  --shadow-elev-3: 0 4px 16px rgba(0,147,179,0.08), 0 2px 4px rgba(0,147,179,0.04);
+  --shadow-elev-4: 0 12px 32px rgba(0,147,179,0.10), 0 4px 10px rgba(0,147,179,0.06);
+}
+
+/* ── Base layer ─────────────────────────────────────────────── */
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html { font-size: 15px; }
+
+  body {
+    font-family: 'Quicksand', sans-serif;
+    line-height: 1.6;
+    color: #007a8a;
+    background-color: #fafeff;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,147,179,0.15); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(0,147,179,0.25); }
+
+  ::selection { background: rgba(0,147,179,0.15); color: inherit; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+}

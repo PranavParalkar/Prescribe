@@ -5,4 +5,4 @@ backend/logs/application.log
 
 .app
 
-backend\src\main\resources\application.yaml
+backend/src/main/resources/application.yaml

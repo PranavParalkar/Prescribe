@@ -37,7 +37,7 @@ public class MedicalOrderService {
         Prescription prescription = prescriptionRepository.findById(request.getPrescriptionId())
                 .orElseThrow(() -> new RuntimeException("Prescription not found"));
 
-        Medical medical = medicalRepository.findById(request.getMedicalId())
+        Medical medical = medicalRepository.findByMedicalId(request.getMedicalId())
                 .orElseThrow(() -> new RuntimeException("Medical store not found"));
 
         // Allow both DOCTOR and PATIENT to forward, but they must be related to prescription

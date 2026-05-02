@@ -51,20 +51,11 @@ export default function PrescriptionDetailsPage() {
 
     const fetchRx = async () => {
       try {
-        const entityId = user?.entityId
-        if (!entityId) throw new Error('Profile not found')
+        if (!user) throw new Error('Not authenticated')
 
-        let prescriptions
-        if (user?.role === 'doctor') {
-          prescriptions = await getPrescriptionsByDoctor(entityId)
-        } else {
-          const data = await getPrescriptionsByPatient(entityId)
-          prescriptions = data?.prescriptions || data || []
-        }
-
-        const match = (prescriptions || []).find(p => p.id === id)
-        if (match) {
-          setRx(normaliseRx(match))
+        const res = await api.get(`/api/prescriptions/${id}`)
+        if (res.data) {
+          setRx(normaliseRx(res.data))
         } else {
           setLoadError('Prescription not found.')
         }

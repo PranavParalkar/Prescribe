@@ -10,5 +10,5 @@ public class MedicalOrderRequest {
     private UUID prescriptionId;
 
     @NotNull(message = "Medical ID is required")
-    private UUID medicalId;
+    private String medicalId;
 }

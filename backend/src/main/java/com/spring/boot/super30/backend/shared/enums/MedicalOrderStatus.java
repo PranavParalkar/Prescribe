@@ -4,6 +4,9 @@ public enum MedicalOrderStatus {
     REQUESTED,
     RESPONDED,
     ACCEPTED,
+    CONFIRMED,
+    READY_FOR_PICKUP,
     REJECTED,
+    CANCELLED,
     COMPLETED
 }

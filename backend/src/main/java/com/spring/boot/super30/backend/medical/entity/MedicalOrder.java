@@ -9,6 +9,8 @@ import lombok.Setter;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -21,8 +23,8 @@ public class MedicalOrder {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @ManyToOne(optional = false)
-    @JoinColumn(nullable = false)
+    @ManyToOne(optional = true)
+    @JoinColumn(nullable = true)
     private Prescription prescription;
 
     @ManyToOne(optional = false)
@@ -45,6 +47,9 @@ public class MedicalOrder {
     private String razorpayOrderId;
     private String razorpayPaymentId;
     private String razorpaySignature;
+
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<OrderItem> items = new ArrayList<>();
 
     private LocalDateTime createdAt = LocalDateTime.now();
 

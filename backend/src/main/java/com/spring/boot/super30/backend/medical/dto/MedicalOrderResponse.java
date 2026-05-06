@@ -17,6 +17,8 @@ public class MedicalOrderResponse {
     private MedicalOrderStatus status;
     private String availableItems;
     private Double totalCost;
+    private String razorpayOrderId;
+    private String razorpayKeyId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

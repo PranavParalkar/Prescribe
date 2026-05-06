@@ -15,6 +15,14 @@ import com.spring.boot.super30.backend.prescription.repository.PrescriptionRepos
 import com.spring.boot.super30.backend.shared.entity.User;
 import com.spring.boot.super30.backend.shared.enums.MedicalOrderStatus;
 import com.spring.boot.super30.backend.shared.enums.UserRole;
+import com.spring.boot.super30.backend.medical.dto.MedicalPaymentVerificationRequest;
+import com.razorpay.Order;
+import com.razorpay.RazorpayClient;
+import com.razorpay.Utils;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Value;
+import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +31,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MedicalOrderService {
@@ -31,6 +40,24 @@ public class MedicalOrderService {
     private final MedicalRepository medicalRepository;
     private final PrescriptionRepository prescriptionRepository;
     private final PatientRepository patientRepository;
+
+    @Value("${razorpay.key-id}")
+    private String razorpayKeyId;
+
+    @Value("${razorpay.key-secret}")
+    private String razorpayKeySecret;
+
+    private RazorpayClient razorpayClient;
+
+    @PostConstruct
+    public void init() {
+        try {
+            this.razorpayClient = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
+            log.info("Razorpay client initialized in MedicalOrderService");
+        } catch (Exception e) {
+            log.error("Failed to initialize Razorpay client: {}", e.getMessage());
+        }
+    }
 
     @Transactional
     public MedicalOrderResponse forwardPrescription(MedicalOrderRequest request, User currentUser) {
@@ -102,7 +129,45 @@ public class MedicalOrderService {
     }
 
     @Transactional
-    public MedicalOrderResponse acceptOrder(UUID orderId, User currentUser) {
+    public MedicalOrderResponse createPaymentOrder(UUID orderId, User currentUser) {
+        MedicalOrder order = medicalOrderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Medical order not found"));
+
+        if (!order.getPatient().getUser().getId().equals(currentUser.getId())) {
+            throw new RuntimeException("Not authorized to pay for this order");
+        }
+
+        if (order.getStatus() != MedicalOrderStatus.RESPONDED) {
+            throw new RuntimeException("Order is not in RESPONDED status");
+        }
+
+        try {
+            int amountInPaise = (int) (order.getTotalCost() * 100);
+            JSONObject orderRequest = new JSONObject();
+            orderRequest.put("amount", amountInPaise);
+            orderRequest.put("currency", "INR");
+            orderRequest.put("receipt", "rx_med_" + order.getId().toString().substring(0, 8) + "_" + System.currentTimeMillis());
+            orderRequest.put("payment_capture", 1);
+
+            Order razorpayOrder = razorpayClient.orders.create(orderRequest);
+            String rzOrderId = razorpayOrder.get("id");
+
+            order.setRazorpayOrderId(rzOrderId);
+            medicalOrderRepository.save(order);
+
+            MedicalOrderResponse response = mapToResponse(order);
+            response.setRazorpayOrderId(rzOrderId);
+            response.setRazorpayKeyId(razorpayKeyId);
+            return response;
+
+        } catch (Exception e) {
+            log.error("Failed to create Razorpay order for medical order: {}", e.getMessage());
+            throw new RuntimeException("Failed to create payment order: " + e.getMessage());
+        }
+    }
+
+    @Transactional
+    public MedicalOrderResponse verifyPaymentAndAcceptOrder(UUID orderId, MedicalPaymentVerificationRequest request, User currentUser) {
         MedicalOrder order = medicalOrderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Medical order not found"));
 
@@ -114,7 +179,22 @@ public class MedicalOrderService {
             throw new RuntimeException("Order is not in RESPONDED status");
         }
 
-        // Simulating payment process here.
+        try {
+            JSONObject options = new JSONObject();
+            options.put("razorpay_order_id", request.getRazorpayOrderId());
+            options.put("razorpay_payment_id", request.getRazorpayPaymentId());
+            options.put("razorpay_signature", request.getRazorpaySignature());
+
+            boolean isValid = Utils.verifyPaymentSignature(options, razorpayKeySecret);
+            if (!isValid) {
+                throw new RuntimeException("Payment verification failed");
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Payment verification error: " + e.getMessage());
+        }
+
+        order.setRazorpayPaymentId(request.getRazorpayPaymentId());
+        order.setRazorpaySignature(request.getRazorpaySignature());
         order.setStatus(MedicalOrderStatus.ACCEPTED); // Represents ACCEPTED and PAID
 
         return mapToResponse(medicalOrderRepository.save(order));

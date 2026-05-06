@@ -42,6 +42,10 @@ public class MedicalOrder {
 
     private Double totalCost;
 
+    private String razorpayOrderId;
+    private String razorpayPaymentId;
+    private String razorpaySignature;
+
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @UpdateTimestamp

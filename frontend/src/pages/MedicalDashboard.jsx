@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/api'
-import { Store, Package, CheckCircle, Clock, AlertCircle, Eye, ArrowRight, ShieldCheck } from 'lucide-react'
+import { Store, Package, CheckCircle, Clock, AlertCircle, Eye, ArrowRight, ShieldCheck, RefreshCw, IndianRupee } from 'lucide-react'
 
 export default function MedicalDashboard() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
   // Respond Modal State
   const [showRespondModal, setShowRespondModal] = useState(false)
@@ -21,6 +22,7 @@ export default function MedicalDashboard() {
   }, [])
 
   const fetchOrders = async () => {
+    setRefreshing(true)
     try {
       const res = await api.get('/api/medicals/orders/medical')
       setOrders(res.data)
@@ -28,6 +30,7 @@ export default function MedicalDashboard() {
       console.error('Error fetching orders', err)
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
@@ -108,15 +111,29 @@ export default function MedicalDashboard() {
           <p className="text-slate-500 mt-2 font-medium">Manage incoming prescription orders and provide quotations.</p>
         </div>
         
-        <div className="flex gap-4">
-          <div className="bg-white px-5 py-3 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center">
+        <div className="flex gap-4 items-center flex-wrap sm:flex-nowrap">
+          <div className="bg-white px-5 py-3 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center flex-1 sm:flex-none">
             <span className="text-2xl font-black text-teal-600 leading-none">{orders.filter(o => o.status === 'REQUESTED').length}</span>
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mt-1">New Orders</span>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mt-1 text-center">New Orders</span>
           </div>
-          <div className="bg-white px-5 py-3 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center">
+          <div className="bg-white px-5 py-3 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center flex-1 sm:flex-none">
             <span className="text-2xl font-black text-emerald-600 leading-none">{orders.filter(o => o.status === 'ACCEPTED').length}</span>
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mt-1">To Fulfill</span>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mt-1 text-center">To Fulfill</span>
           </div>
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 px-5 py-3 rounded-2xl border border-slate-700 shadow-sm flex flex-col items-center justify-center text-white flex-1 sm:flex-none">
+            <span className="text-2xl font-black leading-none flex items-center">
+              <IndianRupee className="w-5 h-5 mr-0.5" />
+              {orders.filter(o => o.status === 'COMPLETED').reduce((acc, order) => acc + (order.totalCost || 0), 0).toLocaleString()}
+            </span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-1 text-center">Total Revenue</span>
+          </div>
+          <button 
+            onClick={fetchOrders}
+            disabled={refreshing}
+            className="w-12 h-12 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center hover:bg-slate-50 hover:border-slate-300 transition-all text-slate-500 hover:text-teal-600 disabled:opacity-50 shrink-0 cursor-pointer"
+          >
+            <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
         </div>
       </div>
 

@@ -2,9 +2,25 @@ import { useState, useEffect } from 'react'
 import { api } from '../api/api'
 import DashboardLayout from '../components/layout/DashboardLayout'
 
+function loadRazorpayScript() {
+  return new Promise((resolve) => {
+    if (document.getElementById('razorpay-script')) {
+      resolve(true)
+      return
+    }
+    const script = document.createElement('script')
+    script.id = 'razorpay-script'
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.onload = () => resolve(true)
+    script.onerror = () => resolve(false)
+    document.body.appendChild(script)
+  })
+}
+
 export default function PatientMedicalOrders() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
+  const [payingOrderId, setPayingOrderId] = useState(null)
 
   useEffect(() => {
     fetchOrders()
@@ -23,14 +39,60 @@ export default function PatientMedicalOrders() {
 
   const handleAcceptQuote = async (order) => {
     try {
-      // Assuming Razorpay or payment logic would go here.
-      // For now, we simulate success by calling accept
-      await api.post(`/api/medicals/orders/${order.id}/accept`)
-      alert('Order Accepted and Payment Successful!')
-      fetchOrders()
+      setPayingOrderId(order.id)
+      const scriptLoaded = await loadRazorpayScript()
+      if (!scriptLoaded) {
+        alert('Failed to load Razorpay. Please check your internet connection.')
+        setPayingOrderId(null)
+        return
+      }
+
+      // Step 1: Create payment order
+      const { data: paymentOrder } = await api.post(`/api/medicals/orders/${order.id}/create-payment`)
+      
+      const options = {
+        key: paymentOrder.razorpayKeyId,
+        amount: paymentOrder.totalCost * 100,
+        currency: 'INR',
+        name: 'Prescribe',
+        description: `Payment for Order #${order.id.split('-')[0]}`,
+        order_id: paymentOrder.razorpayOrderId,
+        handler: async (response) => {
+          try {
+            await api.post(`/api/medicals/orders/${order.id}/accept`, {
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            })
+            alert('Order Accepted and Payment Successful!')
+            fetchOrders()
+          } catch (err) {
+            console.error('Error verifying payment', err)
+            alert('Payment verification failed.')
+          } finally {
+            setPayingOrderId(null)
+          }
+        },
+        theme: {
+          color: '#006b7a',
+        },
+        modal: {
+          ondismiss: () => {
+            setPayingOrderId(null)
+          },
+        },
+      }
+
+      const rzp = new window.Razorpay(options)
+      rzp.on('payment.failed', (response) => {
+        alert(`Payment failed: ${response.error.description}`)
+        setPayingOrderId(null)
+      })
+      rzp.open()
     } catch (err) {
-      console.error('Error accepting quote', err)
-      alert('Failed to accept quote.')
+      console.error('Error initiating payment', err)
+      alert('Failed to initiate payment.')
+      setPayingOrderId(null)
     }
   }
 
@@ -90,9 +152,10 @@ export default function PatientMedicalOrders() {
                   {order.status === 'RESPONDED' && (
                     <button
                       onClick={() => handleAcceptQuote(order)}
-                      className="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors shadow-sm"
+                      disabled={payingOrderId === order.id}
+                      className="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      Accept & Pay
+                      {payingOrderId === order.id ? 'Loading...' : 'Accept & Pay'}
                     </button>
                   )}
                   {order.status === 'ACCEPTED' && (

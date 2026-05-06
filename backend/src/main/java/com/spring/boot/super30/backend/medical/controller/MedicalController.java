@@ -67,11 +67,19 @@ public class MedicalController {
         return ResponseEntity.ok(medicalOrderService.respondToOrder(orderId, request, userDetails.getUser()));
     }
 
+    @PostMapping("/orders/{orderId}/create-payment")
+    public ResponseEntity<MedicalOrderResponse> createPaymentOrder(
+            @PathVariable UUID orderId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(medicalOrderService.createPaymentOrder(orderId, userDetails.getUser()));
+    }
+
     @PostMapping("/orders/{orderId}/accept")
     public ResponseEntity<MedicalOrderResponse> acceptOrder(
             @PathVariable UUID orderId,
+            @RequestBody com.spring.boot.super30.backend.medical.dto.MedicalPaymentVerificationRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(medicalOrderService.acceptOrder(orderId, userDetails.getUser()));
+        return ResponseEntity.ok(medicalOrderService.verifyPaymentAndAcceptOrder(orderId, request, userDetails.getUser()));
     }
 
     @PostMapping("/orders/{orderId}/complete")

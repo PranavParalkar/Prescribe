@@ -493,3 +493,25 @@ export function searchMedicines(query) {
 export function placeOrder(data) {
   return request('POST', '/api/medicals/orders/place', data)
 }
+
+// ─── Prescription Float ────────────────────────────────────────────────────
+
+export function floatPrescription(data) {
+  return request('POST', '/api/medicals/float', data)
+}
+
+export function getPatientFloats() {
+  return request('GET', '/api/medicals/float/patient')
+}
+
+export function getFloatsForMedical() {
+  return request('GET', '/api/medicals/float/medical')
+}
+
+export function submitFloatQuote(floatId, data) {
+  return request('POST', `/api/medicals/float/${floatId}/quote`, data)
+}
+
+export function selectFloatQuote(floatId, quoteId) {
+  return request('POST', `/api/medicals/float/${floatId}/select/${quoteId}`)
+}

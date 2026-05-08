@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/api'
-import { searchMedicines, placeOrder } from '../api/api'
+import { searchMedicines, placeOrder, floatPrescription, getPatientFloats, selectFloatQuote, getPrescriptionsByPatient } from '../api/api'
+import { useAuth } from '../context/AuthContext'
 import DashboardLayout from '../components/layout/DashboardLayout'
-import { Search, ShoppingCart, Store, Package, CheckCircle, Clock, Trash2, Plus, Minus, X, CreditCard, MapPin } from 'lucide-react'
+import { Search, ShoppingCart, Store, Package, CheckCircle, Clock, Trash2, Plus, Minus, X, CreditCard, MapPin, Send, Award, IndianRupee } from 'lucide-react'
 
 function loadRazorpayScript() {
   return new Promise((resolve) => {
@@ -13,20 +14,85 @@ function loadRazorpayScript() {
 }
 
 export default function PatientMedicalOrders() {
-  const [tab, setTab] = useState('search') // search | cart | orders
+  const { user } = useAuth()
+  const [tab, setTab] = useState('search')
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
-  const [cart, setCart] = useState([]) // [{inventoryItemId, medicineName, storeName, medicalId, price, qty, maxQty}]
+  const [cart, setCart] = useState([])
   const [payingOrderId, setPayingOrderId] = useState(null)
 
-  useEffect(() => { fetchOrders() }, [])
+  // Float state
+  const [floats, setFloats] = useState([])
+  const [floatMedicines, setFloatMedicines] = useState('')
+  const [floatingInProgress, setFloatingInProgress] = useState(false)
+  const [selectingQuote, setSelectingQuote] = useState(null)
+
+  useEffect(() => { fetchOrders(); fetchFloats() }, [])
 
   const fetchOrders = async () => {
     try { const res = await api.get('/api/medicals/orders/patient'); setOrders(res.data || []) }
     catch(e) { console.error(e) } finally { setLoading(false) }
+  }
+
+  const fetchFloats = async () => {
+    try { const data = await getPatientFloats(); setFloats(data || []) }
+    catch(e) { console.error(e) }
+  }
+
+  const handleFloat = async () => {
+    if (!floatMedicines.trim()) { alert('Please enter the medicines you need.'); return }
+    setFloatingInProgress(true)
+    try {
+      const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true }))
+      await floatPrescription({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, medicineList: floatMedicines })
+      setFloatMedicines('')
+      fetchFloats()
+      alert('Prescription floated! Nearby stores will submit their quotes.')
+    } catch(e) { alert('Error: ' + (e.message || 'Could not get your location. Please enable GPS.')) }
+    finally { setFloatingInProgress(false) }
+  }
+
+  const handleSelectQuote = async (floatId, quoteId) => {
+    setSelectingQuote(quoteId)
+    try {
+      await selectFloatQuote(floatId, quoteId)
+      fetchFloats(); fetchOrders()
+      setTab('orders')
+      alert('Store selected! The order has been created.')
+    } catch(e) { alert('Error: ' + e.message) }
+    finally { setSelectingQuote(null) }
+  }
+
+  const handlePayForOrder = async (orderId) => {
+    setPayingOrderId(orderId)
+    try {
+      const scriptLoaded = await loadRazorpayScript()
+      if (!scriptLoaded) { alert('Failed to load payment gateway.'); setPayingOrderId(null); return }
+      const { data: paymentOrder } = await api.post(`/api/medicals/orders/${orderId}/create-payment`)
+      const options = {
+        key: paymentOrder.razorpayKeyId, amount: paymentOrder.totalCost * 100, currency: 'INR',
+        name: 'Prescribe', description: `Order Payment`,
+        order_id: paymentOrder.razorpayOrderId,
+        handler: async (response) => {
+          try {
+            await api.post(`/api/medicals/orders/${orderId}/accept`, {
+              razorpayOrderId: response.razorpay_order_id, razorpayPaymentId: response.razorpay_payment_id, razorpaySignature: response.razorpay_signature,
+            })
+            fetchOrders()
+            alert('Payment successful!')
+          } catch(e) { alert('Payment verification failed.') }
+          finally { setPayingOrderId(null) }
+        },
+        theme: { color: '#006b7a' },
+        modal: { ondismiss: () => setPayingOrderId(null) },
+      }
+      const rzp = new window.Razorpay(options)
+      rzp.on('payment.failed', (r) => { alert(`Payment failed: ${r.error.description}`); setPayingOrderId(null) })
+      rzp.open()
+    } catch(e) { alert('Error: ' + e.message); setPayingOrderId(null) }
   }
 
   const handleSearch = async (e) => {
@@ -93,6 +159,8 @@ export default function PatientMedicalOrders() {
 
   const getStatusBadge = (status) => {
     const map = {
+      'REQUESTED': ['bg-yellow-100 text-yellow-800', 'Sent to Store'],
+      'PENDING_PAYMENT': ['bg-orange-100 text-orange-800', '💳 Pay Now'],
       'CONFIRMED': ['bg-blue-100 text-blue-800', 'Order Placed'],
       'ACCEPTED': ['bg-indigo-100 text-indigo-800', 'Payment Verified'],
       'READY_FOR_PICKUP': ['bg-emerald-100 text-emerald-800', '✅ Ready for Pickup'],
@@ -116,9 +184,10 @@ export default function PatientMedicalOrders() {
       {/* Tabs */}
       <div className="flex gap-1 bg-slate-100 rounded-xl p-1 mb-6">
         {[
-          { id:'search', label:'Search Medicines', icon: Search },
+          { id:'search', label:'Search', icon: Search },
           { id:'cart', label:`Cart (${totalCartItems})`, icon: ShoppingCart },
-          { id:'orders', label:'My Orders', icon: Package },
+          { id:'float', label:'Float Rx', icon: Send },
+          { id:'orders', label:'Orders', icon: Package },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer ${tab === t.id ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
             <t.icon className="w-4 h-4" />{t.label}
@@ -213,12 +282,70 @@ export default function PatientMedicalOrders() {
                     </div>
                     <div className="text-right shrink-0">
                       {order.totalCost && <div className="text-lg font-bold text-slate-800">₹{order.totalCost.toFixed(2)}</div>}
+                      {order.status === 'PENDING_PAYMENT' && <button onClick={() => handlePayForOrder(order.id)} disabled={payingOrderId === order.id} className="mt-1 px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 text-white text-xs font-bold rounded-lg hover:from-teal-600 hover:to-emerald-600 shadow-md disabled:opacity-50 cursor-pointer flex items-center gap-1"><CreditCard className="w-3 h-3" />{payingOrderId === order.id ? 'Processing...' : 'Pay Now'}</button>}
                       {order.status === 'READY_FOR_PICKUP' && <div className="mt-1 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1"><MapPin className="w-3 h-3" />Show Patient ID at store</div>}
                     </div>
                   </div>
                 </div>
               ))}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══ FLOAT TAB ═══ */}
+      {tab === 'float' && (
+        <div>
+          {/* Float form */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mb-6">
+            <h3 className="font-bold text-slate-800 mb-1">Float Prescription</h3>
+            <p className="text-xs text-slate-400 mb-4">Broadcast your medicine needs to all nearby stores within 3km. They'll send you price quotes.</p>
+            <textarea value={floatMedicines} onChange={e => setFloatMedicines(e.target.value)} rows={3} placeholder="e.g. Paracetamol 500mg x10, Amoxicillin 250mg x5..." className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 mb-3" />
+            <button onClick={handleFloat} disabled={floatingInProgress} className="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-white text-sm font-bold rounded-xl hover:from-teal-600 hover:to-emerald-600 shadow-md disabled:opacity-50 cursor-pointer flex items-center gap-2"><Send className="w-4 h-4" />{floatingInProgress ? 'Sending...' : 'Float to Nearby Stores'}</button>
+          </div>
+
+          {/* Active floats */}
+          {floats.length === 0 ? (
+            <div className="text-center py-12 text-slate-400"><Send className="w-10 h-10 mx-auto mb-3 text-slate-300" /><p className="font-medium">No floated prescriptions yet.</p></div>
+          ) : (
+            floats.map(f => (
+              <div key={f.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm mb-4 overflow-hidden">
+                <div className="px-5 py-3 bg-gradient-to-r from-violet-50 to-indigo-50 border-b border-violet-100 flex items-center justify-between">
+                  <div>
+                    <span className="font-bold text-slate-800">Float #{f.id?.split('-')[0]}</span>
+                    <span className={`ml-2 px-2 py-0.5 text-[10px] rounded-full font-bold ${f.status === 'OPEN' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>{f.status}</span>
+                  </div>
+                  <span className="text-xs text-slate-400">{f.quotes?.length || 0} quote(s)</span>
+                </div>
+                <div className="px-5 py-3 border-b border-slate-100">
+                  <p className="text-sm text-slate-600">{f.medicineList || 'No details'}</p>
+                </div>
+                {f.quotes?.length > 0 && (
+                  <div className="divide-y divide-slate-100">
+                    {f.quotes.map(q => (
+                      <div key={q.quoteId} className="px-5 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 bg-teal-50 rounded-xl flex items-center justify-center text-teal-600"><Store className="w-4 h-4" /></div>
+                          <div>
+                            <div className="text-sm font-bold text-slate-800">{q.storeName}</div>
+                            <div className="text-xs text-slate-400">{q.availableItems}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-lg font-black text-slate-800">₹{q.totalCost?.toFixed(2)}</div>
+                          {f.status === 'OPEN' && (
+                            <button onClick={() => handleSelectQuote(f.id, q.quoteId)} disabled={selectingQuote === q.quoteId} className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1"><Award className="w-3 h-3" />{selectingQuote === q.quoteId ? '...' : 'Select'}</button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {f.status === 'OPEN' && (!f.quotes || f.quotes.length === 0) && (
+                  <div className="px-5 py-4 text-center text-sm text-slate-400"><Clock className="w-5 h-5 mx-auto mb-1 text-slate-300" />Waiting for stores to submit quotes...</div>
+                )}
+              </div>
+            ))
           )}
         </div>
       )}

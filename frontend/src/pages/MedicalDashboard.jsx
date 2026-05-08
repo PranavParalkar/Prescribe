@@ -1,15 +1,20 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../api/api'
-import { getInventory, addInventoryItem, updateInventoryItem, deleteInventoryItem, getLowStockAlerts, getExpiringAlerts, getMedicalDashboardStats } from '../api/api'
-import { Store, Package, CheckCircle, Clock, AlertCircle, Eye, ArrowRight, ShieldCheck, RefreshCw, IndianRupee, Plus, Pencil, Trash2, AlertTriangle, X, Search, ShoppingBag, Bell, BarChart3 } from 'lucide-react'
+import { getInventory, addInventoryItem, updateInventoryItem, deleteInventoryItem, getLowStockAlerts, getExpiringAlerts, getMedicalDashboardStats, getFloatsForMedical, submitFloatQuote } from '../api/api'
+import { Store, Package, CheckCircle, Clock, AlertCircle, Eye, ArrowRight, ShieldCheck, RefreshCw, IndianRupee, Plus, Pencil, Trash2, AlertTriangle, X, Search, ShoppingBag, Bell, BarChart3, Send } from 'lucide-react'
+import DashboardLayout from '../components/layout/DashboardLayout'
+import StatCard from '../components/ui/StatCard'
+import { useAuth } from '../context/AuthContext'
 
 const TABS = [
   { id: 'orders', label: 'Orders', icon: ShoppingBag },
+  { id: 'floats', label: 'Float Requests', icon: Send },
   { id: 'inventory', label: 'Inventory', icon: Package },
   { id: 'alerts', label: 'Alerts', icon: Bell },
 ]
 
 export default function MedicalDashboard() {
+  const { user } = useAuth()
   const [tab, setTab] = useState('orders')
   const [orders, setOrders] = useState([])
   const [inventory, setInventory] = useState([])
@@ -25,6 +30,17 @@ export default function MedicalDashboard() {
   const [showCompleteModal, setShowCompleteModal] = useState(false)
   const [activeOrder, setActiveOrder] = useState(null)
   const [patientId, setPatientId] = useState('')
+
+  // Confirm modal
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [confirmOrder, setConfirmOrder] = useState(null)
+  const [confirmForm, setConfirmForm] = useState({ availableItems: '', totalCost: 0 })
+
+  // Float state
+  const [nearbyFloats, setNearbyFloats] = useState([])
+  const [showQuoteModal, setShowQuoteModal] = useState(false)
+  const [quoteFloat, setQuoteFloat] = useState(null)
+  const [quoteForm, setQuoteForm] = useState({ availableItems: '', totalCost: 0 })
 
   // Item form
   const [itemForm, setItemForm] = useState({ medicineName:'', genericName:'', manufacturer:'', batchNumber:'', quantity:0, price:0, expiryDate:'', category:'', lowStockThreshold:10 })
@@ -43,11 +59,17 @@ export default function MedicalDashboard() {
       setStats(statsRes)
       setLowStock(lsRes || [])
       setExpiring(expRes || [])
+      setExpiring(expRes || [])
     } catch(e) { console.error(e) }
     finally { setLoading(false) }
   }, [])
 
-  useEffect(() => { fetchAll() }, [fetchAll])
+  const fetchFloats = useCallback(async () => {
+    try { const data = await getFloatsForMedical(); setNearbyFloats(data || []) }
+    catch(e) { console.error(e) }
+  }, [])
+
+  useEffect(() => { fetchAll(); fetchFloats() }, [fetchAll, fetchFloats])
 
   const openAddItem = () => {
     setEditingItem(null)
@@ -88,9 +110,28 @@ export default function MedicalDashboard() {
     try { await api.post(`/api/medicals/orders/${activeOrder.id}/complete`, { patientId }); setShowCompleteModal(false); fetchAll() } catch(e) { alert('Error completing order. Verify Patient ID.') }
   }
 
+  const handleConfirmClick = (order) => {
+    setConfirmOrder(order)
+    setConfirmForm({ availableItems: order.availableItems || '', totalCost: order.totalCost || 0 })
+    setShowConfirmModal(true)
+  }
+
+  const handleConfirmSubmit = async (e) => {
+    e.preventDefault()
+    try {
+      await api.post(`/api/medicals/orders/${confirmOrder.id}/confirm`, {
+        availableItems: confirmForm.availableItems,
+        totalCost: parseFloat(confirmForm.totalCost)
+      })
+      setShowConfirmModal(false)
+      fetchAll()
+    } catch(e) { alert('Error confirming order: ' + (e.response?.data?.message || e.message)) }
+  }
+
   const getStatusBadge = (status) => {
     const map = {
       'REQUESTED': ['bg-yellow-50 text-yellow-700 border-yellow-200', AlertCircle, 'New Request'],
+      'PENDING_PAYMENT': ['bg-orange-50 text-orange-700 border-orange-200', Clock, 'Awaiting Payment'],
       'CONFIRMED': ['bg-blue-50 text-blue-700 border-blue-200', Clock, 'Confirmed'],
       'ACCEPTED': ['bg-indigo-50 text-indigo-700 border-indigo-200', CheckCircle, 'Paid'],
       'READY_FOR_PICKUP': ['bg-emerald-50 text-emerald-700 border-emerald-200', Package, 'Ready'],
@@ -105,38 +146,61 @@ export default function MedicalDashboard() {
 
   const totalAlerts = (lowStock?.length || 0) + (expiring?.length || 0)
 
-  if (loading) return <div className="flex flex-col items-center justify-center min-h-[60vh]"><svg className="animate-spin h-8 w-8 text-teal-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><p className="text-slate-500 font-medium">Loading dashboard...</p></div>
+  if (loading) return (
+    <DashboardLayout>
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <svg className="animate-spin h-8 w-8 text-teal-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        <p className="text-slate-500 font-medium">Loading dashboard...</p>
+      </div>
+    </DashboardLayout>
+  )
 
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <DashboardLayout>
+      {/* ── Page header ─────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-teal-400 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg shadow-teal-500/30"><Store className="w-6 h-6 text-white" /></div>
-            Store Dashboard
-          </h1>
-          <p className="text-slate-500 mt-2 font-medium">Manage inventory, orders, and alerts.</p>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Store Dashboard</h1>
+          <p className="text-sm text-slate-400 mt-1">
+            Welcome back, <span className="text-slate-600 font-semibold">{user?.name}</span>
+          </p>
         </div>
-        <div className="flex gap-3 flex-wrap">
-          {[
-            { label:'Inventory', value: stats?.totalInventoryItems ?? inventory.length, color:'text-teal-600' },
-            { label:'Low Stock', value: stats?.lowStockCount ?? lowStock.length, color:'text-amber-600' },
-            { label:'New Orders', value: orders.filter(o=>o.status==='CONFIRMED'||o.status==='ACCEPTED').length, color:'text-blue-600' },
-          ].map(s => (
-            <div key={s.label} className="bg-white px-4 py-2 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center min-w-[80px]">
-              <span className={`text-xl font-black leading-none ${s.color}`}>{s.value}</span>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">{s.label}</span>
-            </div>
-          ))}
-          <button onClick={fetchAll} className="w-10 h-10 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center hover:bg-slate-50 transition-all text-slate-500 hover:text-teal-600 cursor-pointer self-center"><RefreshCw className="w-4 h-4" /></button>
-        </div>
+        <button onClick={fetchAll} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-navy-700 hover:bg-navy-800 shadow-elev-1 transition-all duration-150 active:scale-95 cursor-pointer w-full sm:w-auto">
+          <RefreshCw className="w-4 h-4" />
+          Refresh
+        </button>
+      </div>
+
+      {/* ── Metric panels ───────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <StatCard
+          label="Inventory Items"
+          value={stats?.totalInventoryItems ?? inventory.length}
+          color="teal"
+          meta="Total medicines in stock"
+          icon={<Package className="w-4.5 h-4.5" />}
+        />
+        <StatCard
+          label="Low Stock"
+          value={stats?.lowStockCount ?? lowStock.length}
+          color="amber"
+          meta="Items below threshold"
+          icon={<AlertTriangle className="w-4.5 h-4.5" />}
+        />
+        <StatCard
+          label="Active Orders"
+          value={orders.filter(o => o.status === 'CONFIRMED' || o.status === 'ACCEPTED').length}
+          color="navy"
+          meta="Pending fulfillment"
+          icon={<ShoppingBag className="w-4.5 h-4.5" />}
+        />
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 rounded-2xl p-1 mb-6">
+      {/* ── Tabs ─────────────────────────────────────────── */}
+      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 mb-6">
         {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${tab === t.id ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+          <button key={t.id} onClick={() => setTab(t.id)} className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all cursor-pointer ${tab === t.id ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
             <t.icon className="w-4 h-4" />
             {t.label}
             {t.id === 'alerts' && totalAlerts > 0 && <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{totalAlerts}</span>}
@@ -146,7 +210,7 @@ export default function MedicalDashboard() {
 
       {/* ═══ ORDERS TAB ═══ */}
       {tab === 'orders' && (
-        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-100 shadow-elev-2 overflow-hidden">
           {orders.length === 0 ? (
             <div className="p-16 text-center flex flex-col items-center"><div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6"><Package className="w-10 h-10 text-slate-300" /></div><h3 className="text-xl font-bold text-slate-800 mb-2">No Orders Yet</h3><p className="text-slate-500 max-w-sm">Orders from patients will appear here.</p></div>
           ) : (
@@ -162,6 +226,7 @@ export default function MedicalDashboard() {
                       <td className="p-5"><div className="text-sm text-slate-500">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '—'}</div></td>
                       <td className="p-5">{getStatusBadge(order.status)}</td>
                       <td className="p-5 text-right">
+                        {order.status === 'REQUESTED' && <button onClick={() => handleConfirmClick(order)} className="px-4 py-2 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition-all shadow-sm cursor-pointer"><Eye className="w-4 h-4 inline mr-1" />Review & Confirm</button>}
                         {(order.status === 'CONFIRMED' || order.status === 'ACCEPTED') && <button onClick={() => handleReadyClick(order)} className="px-4 py-2 bg-teal-500 text-white text-sm font-bold rounded-xl hover:bg-teal-600 transition-all shadow-sm cursor-pointer">Mark Ready</button>}
                         {order.status === 'READY_FOR_PICKUP' && <button onClick={() => handleCompleteClick(order)} className="px-4 py-2 bg-emerald-500 text-white text-sm font-bold rounded-xl hover:bg-emerald-600 transition-all shadow-sm cursor-pointer animate-pulse hover:animate-none"><ShieldCheck className="w-4 h-4 inline mr-1" />Handover</button>}
                         {order.status === 'COMPLETED' && <span className="text-sm text-slate-400"><CheckCircle className="w-4 h-4 inline text-emerald-500 mr-1" />Done</span>}
@@ -182,7 +247,7 @@ export default function MedicalDashboard() {
             <div className="relative flex-1 max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><input type="text" placeholder="Search inventory..." value={invSearch} onChange={e => setInvSearch(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white" /></div>
             <button onClick={openAddItem} className="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-white text-sm font-bold rounded-xl hover:from-teal-600 hover:to-emerald-600 shadow-md shadow-teal-500/20 flex items-center gap-2 cursor-pointer"><Plus className="w-4 h-4" />Add Medicine</button>
           </div>
-          <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-xl border border-slate-100 shadow-elev-2 overflow-hidden">
             {filteredInv.length === 0 ? (
               <div className="p-12 text-center"><Package className="w-10 h-10 text-slate-300 mx-auto mb-3" /><p className="text-slate-500 font-medium">No inventory items. Add your first medicine above.</p></div>
             ) : (
@@ -288,6 +353,40 @@ export default function MedicalDashboard() {
           </div>
         </div>
       )}
-    </div>
+
+      {/* ═══ CONFIRM ORDER MODAL ═══ */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <form onSubmit={handleConfirmSubmit}>
+              <div className="p-6 border-b border-slate-100 bg-gradient-to-br from-amber-50 to-yellow-50/30">
+                <h3 className="text-xl font-black text-slate-900">Review & Confirm Order</h3>
+                <p className="text-sm text-slate-500 mt-1">Enter the available items and total cost for this request.</p>
+              </div>
+              <div className="p-6 space-y-4">
+                {confirmOrder?.prescriptionId && (
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Prescription ID</p>
+                    <p className="text-sm font-mono text-slate-700">{confirmOrder.prescriptionId}</p>
+                  </div>
+                )}
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Available Items*</label>
+                  <textarea required rows={3} value={confirmForm.availableItems} onChange={e => setConfirmForm(p => ({...p, availableItems: e.target.value}))} className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 text-sm" placeholder="e.g. Paracetamol 500mg x10, Amoxicillin 250mg x5..." />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Total Cost (₹)*</label>
+                  <input type="number" required min="0" step="0.01" value={confirmForm.totalCost} onChange={e => setConfirmForm(p => ({...p, totalCost: e.target.value}))} className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 text-sm" />
+                </div>
+              </div>
+              <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+                <button type="button" onClick={() => setShowConfirmModal(false)} className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl cursor-pointer">Cancel</button>
+                <button type="submit" className="px-5 py-2.5 bg-amber-600 text-white text-sm font-bold rounded-xl hover:bg-amber-700 shadow-md cursor-pointer">Confirm Order</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </DashboardLayout>
   )
 }

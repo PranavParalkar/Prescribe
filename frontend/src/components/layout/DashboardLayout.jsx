@@ -18,7 +18,10 @@ import {
   Users,
   UserCheck,
   ShieldAlert,
-  ShoppingBag
+  ShoppingBag,
+  Store,
+  Package,
+  Bell
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { getSubscriptionStatus, getDoctorByEmail } from '../../api/api'
@@ -60,6 +63,11 @@ const ADMIN_LINKS = [
   { to: '/admin/medicals', label: 'Medical Stores', icon: ShoppingBag },
 ]
 
+const MEDICAL_LINKS = [
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/profile', label: 'My Profile', icon: Settings },
+]
+
 export default function DashboardLayout({ children }) {
   const { user, logout, updateUser } = useAuth()
   const navigate = useNavigate()
@@ -69,6 +77,7 @@ export default function DashboardLayout({ children }) {
   const isDoctor = user?.role === 'doctor'
   const isAdmin = user?.role === 'admin'
   const isPatient = user?.role === 'patient'
+  const isMedical = user?.role === 'medical'
 
   const isSubscribed = user?.isSubscribed === true
   const doctorVerified = user?.doctorVerified === true
@@ -79,10 +88,12 @@ export default function DashboardLayout({ children }) {
     links = ADMIN_LINKS
   } else if (isDoctor) {
     links = doctorVerified ? DOCTOR_LINKS : DOCTOR_LINKS_UNVERIFIED
+  } else if (isMedical) {
+    links = MEDICAL_LINKS
   } else if (isPatient) {
     links = isSubscribed ? PATIENT_LINKS_PRO : PATIENT_LINKS_FREE
   } else {
-    links = [] // default empty for other roles like medical store
+    links = []
   }
 
   // Fetch subscription status for patient users
@@ -211,7 +222,7 @@ export default function DashboardLayout({ children }) {
           `}
         >
           <p className="text-[9px] font-bold text-white/25 uppercase tracking-[0.15em] whitespace-nowrap">
-            {isAdmin ? 'Admin Portal' : (isDoctor ? 'Doctor Portal' : 'Patient Portal')}
+            {isAdmin ? 'Admin Portal' : isDoctor ? 'Doctor Portal' : isMedical ? 'Store Portal' : 'Patient Portal'}
           </p>
         </div>
 
@@ -339,7 +350,7 @@ export default function DashboardLayout({ children }) {
             </button>
             <div className="w-1 h-4 rounded-full bg-teal-500" />
             <span className="text-sm font-semibold text-slate-500 max-sm:hidden">
-              {isAdmin ? 'Admin Portal' : (user?.role === 'doctor' ? 'Doctor Portal' : 'Patient Portal')}
+              {isAdmin ? 'Admin Portal' : isDoctor ? 'Doctor Portal' : isMedical ? 'Store Portal' : 'Patient Portal'}
             </span>
           </div>
           <div className="flex items-center gap-3">

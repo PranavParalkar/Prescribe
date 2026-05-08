@@ -41,6 +41,9 @@ public class Medical {
     @Column(nullable = false)
     private MedicalStatus status = MedicalStatus.PENDING;
 
+    private Double latitude;
+    private Double longitude;
+
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @UpdateTimestamp

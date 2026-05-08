@@ -34,7 +34,8 @@ public class MedicalService {
         medical.setStoreName(request.getStoreName());
         medical.setLicenseNumber(request.getLicenseNumber());
         medical.setMedicalId("MED" + System.currentTimeMillis());
-        // Auto-verify for simplicity, or keep as PENDING based on flow. Let's make it VERIFIED so it works smoothly.
+        medical.setLatitude(request.getLatitude());
+        medical.setLongitude(request.getLongitude());
         medical.setStatus(MedicalStatus.VERIFIED);
 
         return mapToResponse(medicalRepository.save(medical));
@@ -59,6 +60,8 @@ public class MedicalService {
         response.setStoreName(medical.getStoreName());
         response.setLicenseNumber(medical.getLicenseNumber());
         response.setStatus(medical.getStatus());
+        response.setLatitude(medical.getLatitude());
+        response.setLongitude(medical.getLongitude());
         return response;
     }
 

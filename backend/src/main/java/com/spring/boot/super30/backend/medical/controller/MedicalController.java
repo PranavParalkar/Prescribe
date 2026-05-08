@@ -22,6 +22,7 @@ public class MedicalController {
     private final MedicalService medicalService;
     private final MedicalOrderService medicalOrderService;
     private final InventoryService inventoryService;
+    private final com.spring.boot.super30.backend.medical.service.FloatService floatService;
 
     // ═════════════════════════════════════════════════════════════════════════
     //  STORE REGISTRATION & PROFILE
@@ -150,6 +151,14 @@ public class MedicalController {
         return ResponseEntity.ok(medicalOrderService.verifyPaymentAndAcceptOrder(orderId, request, userDetails.getUser()));
     }
 
+    @PostMapping("/orders/{orderId}/confirm")
+    public ResponseEntity<MedicalOrderResponse> confirmOrder(
+            @PathVariable UUID orderId,
+            @Valid @RequestBody MedicalRespondRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(medicalOrderService.confirmOrder(orderId, request, userDetails.getUser()));
+    }
+
     @PostMapping("/orders/{orderId}/ready")
     public ResponseEntity<MedicalOrderResponse> markReady(
             @PathVariable UUID orderId,
@@ -163,5 +172,44 @@ public class MedicalController {
             @Valid @RequestBody MedicalCompleteRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(medicalOrderService.completeOrder(orderId, request, userDetails.getUser()));
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    //  PRESCRIPTION FLOAT (Broadcast to nearby stores)
+    // ═════════════════════════════════════════════════════════════════════════
+
+    @PostMapping("/float")
+    public ResponseEntity<FloatPrescriptionResponse> floatPrescription(
+            @Valid @RequestBody FloatPrescriptionRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(floatService.floatPrescription(request, userDetails.getUser()));
+    }
+
+    @GetMapping("/float/patient")
+    public ResponseEntity<java.util.List<FloatPrescriptionResponse>> getPatientFloats(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(floatService.getPatientFloats(userDetails.getUser()));
+    }
+
+    @GetMapping("/float/medical")
+    public ResponseEntity<java.util.List<FloatPrescriptionResponse>> getFloatsForMedical(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(floatService.getFloatsForMedical(userDetails.getUser()));
+    }
+
+    @PostMapping("/float/{floatId}/quote")
+    public ResponseEntity<FloatPrescriptionResponse> submitQuote(
+            @PathVariable UUID floatId,
+            @Valid @RequestBody SubmitQuoteRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(floatService.submitQuote(floatId, request, userDetails.getUser()));
+    }
+
+    @PostMapping("/float/{floatId}/select/{quoteId}")
+    public ResponseEntity<MedicalOrderResponse> selectQuote(
+            @PathVariable UUID floatId,
+            @PathVariable UUID quoteId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(floatService.selectQuote(floatId, quoteId, userDetails.getUser()));
     }
 }

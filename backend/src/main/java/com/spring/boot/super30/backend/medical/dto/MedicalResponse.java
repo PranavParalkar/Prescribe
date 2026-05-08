@@ -12,4 +12,6 @@ public class MedicalResponse {
     private String storeName;
     private String licenseNumber;
     private MedicalStatus status;
+    private Double latitude;
+    private Double longitude;
 }

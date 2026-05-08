@@ -140,8 +140,8 @@ public class MedicalOrderService {
             throw new RuntimeException("Not authorized to pay for this order");
         }
 
-        if (order.getStatus() != MedicalOrderStatus.CONFIRMED) {
-            throw new RuntimeException("Order is not in CONFIRMED status");
+        if (order.getStatus() != MedicalOrderStatus.CONFIRMED && order.getStatus() != MedicalOrderStatus.PENDING_PAYMENT) {
+            throw new RuntimeException("Order is not in CONFIRMED or PENDING_PAYMENT status");
         }
 
         try {
@@ -180,8 +180,8 @@ public class MedicalOrderService {
             throw new RuntimeException("Not authorized");
         }
 
-        if (order.getStatus() != MedicalOrderStatus.CONFIRMED) {
-            throw new RuntimeException("Order is not in CONFIRMED status");
+        if (order.getStatus() != MedicalOrderStatus.CONFIRMED && order.getStatus() != MedicalOrderStatus.PENDING_PAYMENT) {
+            throw new RuntimeException("Order is not in CONFIRMED or PENDING_PAYMENT status");
         }
 
         try {
@@ -250,6 +250,31 @@ public class MedicalOrderService {
         }
 
         order.setStatus(MedicalOrderStatus.COMPLETED);
+        return mapToResponse(medicalOrderRepository.save(order));
+    }
+
+    // ─── Confirm / Respond to Request (Store Owner) ────────────────────────────
+
+    @Transactional
+    public MedicalOrderResponse confirmOrder(UUID orderId, MedicalRespondRequest request, User currentUser) {
+        MedicalOrder order = medicalOrderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Medical order not found"));
+
+        Medical medical = medicalRepository.findByUser(currentUser)
+                .orElseThrow(() -> new RuntimeException("Medical profile not found"));
+
+        if (!order.getMedical().getId().equals(medical.getId())) {
+            throw new RuntimeException("Not authorized");
+        }
+
+        if (order.getStatus() != MedicalOrderStatus.REQUESTED) {
+            throw new RuntimeException("Order must be in REQUESTED status to confirm");
+        }
+
+        order.setAvailableItems(request.getAvailableItems());
+        order.setTotalCost(request.getTotalCost());
+        order.setStatus(MedicalOrderStatus.PENDING_PAYMENT);
+
         return mapToResponse(medicalOrderRepository.save(order));
     }
 

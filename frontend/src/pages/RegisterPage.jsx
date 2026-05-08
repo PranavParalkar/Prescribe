@@ -37,7 +37,20 @@ export default function RegisterPage() {
         setError(result.error)
       }
     } else {
-      const result = await verifyOtpLogin(email, otpCode, role, { name, specialty, licenseNumber, isRegistering: true })
+      let extra = { name, specialty, licenseNumber, isRegistering: true }
+
+      // Capture geolocation for medical stores
+      if (isMedical) {
+        try {
+          const pos = await new Promise((resolve, reject) =>
+            navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 5000 })
+          )
+          extra.latitude = pos.coords.latitude
+          extra.longitude = pos.coords.longitude
+        } catch { /* geolocation unavailable — will be null */ }
+      }
+
+      const result = await verifyOtpLogin(email, otpCode, role, extra)
       
       if (result.success) {
         if (isDoctor && licenseFile && result.profile.entityId) {

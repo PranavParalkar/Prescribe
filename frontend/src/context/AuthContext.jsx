@@ -202,7 +202,9 @@ export function AuthProvider({ children }) {
             }
             const med = await registerMedical({
               storeName: extra.name || 'Medical Store',
-              licenseNumber: extra.licenseNumber || `LIC-${Date.now()}`
+              licenseNumber: extra.licenseNumber || `LIC-${Date.now()}`,
+              latitude: extra.latitude || null,
+              longitude: extra.longitude || null
             })
             entityId = med.medicalId
             name = med.storeName || 'Medical Store'

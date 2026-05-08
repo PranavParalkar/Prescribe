@@ -59,7 +59,6 @@ export default function MedicalDashboard() {
       setStats(statsRes)
       setLowStock(lsRes || [])
       setExpiring(expRes || [])
-      setExpiring(expRes || [])
     } catch(e) { console.error(e) }
     finally { setLoading(false) }
   }, [])
@@ -126,6 +125,22 @@ export default function MedicalDashboard() {
       setShowConfirmModal(false)
       fetchAll()
     } catch(e) { alert('Error confirming order: ' + (e.response?.data?.message || e.message)) }
+  }
+
+  const handleQuoteClick = (f) => {
+    setQuoteFloat(f)
+    setQuoteForm({ availableItems: '', totalCost: 0 })
+    setShowQuoteModal(true)
+  }
+
+  const handleQuoteSubmit = async (e) => {
+    e.preventDefault()
+    try {
+      await submitFloatQuote(quoteFloat.id, { availableItems: quoteForm.availableItems, totalCost: parseFloat(quoteForm.totalCost) })
+      setShowQuoteModal(false)
+      fetchFloats()
+      alert('Quote submitted successfully!')
+    } catch(e) { alert('Error: ' + e.message) }
   }
 
   const getStatusBadge = (status) => {
@@ -235,6 +250,37 @@ export default function MedicalDashboard() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══ FLOAT REQUESTS TAB ═══ */}
+      {tab === 'floats' && (
+        <div className="bg-white rounded-xl border border-slate-100 shadow-elev-2 overflow-hidden">
+          {nearbyFloats.length === 0 ? (
+            <div className="p-16 text-center flex flex-col items-center"><div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6"><Send className="w-10 h-10 text-slate-300" /></div><h3 className="text-xl font-bold text-slate-800 mb-2">No Float Requests</h3><p className="text-slate-500 max-w-sm">Nearby patient prescription requests will appear here.</p></div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {nearbyFloats.map(f => (
+                <div key={f.id} className="p-5 hover:bg-slate-50/80 transition-all">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-bold text-slate-800">Float #{f.id?.split('-')[0]}</span>
+                        <span className="text-xs text-slate-400">from {f.patientName || 'Patient'}</span>
+                        <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${f.status === 'OPEN' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>{f.status}</span>
+                      </div>
+                      <p className="text-sm text-slate-600 mb-1">{f.medicineList || 'No details provided'}</p>
+                      <p className="text-xs text-slate-400">{f.createdAt ? new Date(f.createdAt).toLocaleString() : ''}</p>
+                      {f.quotes?.some(q => q.storeName) && <p className="text-xs text-indigo-500 mt-1 font-medium">{f.quotes.length} quote(s) submitted</p>}
+                    </div>
+                    {f.status === 'OPEN' && (
+                      <button onClick={() => handleQuoteClick(f)} className="px-4 py-2 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition-all shadow-sm cursor-pointer shrink-0 flex items-center gap-1"><IndianRupee className="w-4 h-4" />Submit Quote</button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -382,6 +428,38 @@ export default function MedicalDashboard() {
               <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
                 <button type="button" onClick={() => setShowConfirmModal(false)} className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl cursor-pointer">Cancel</button>
                 <button type="submit" className="px-5 py-2.5 bg-amber-600 text-white text-sm font-bold rounded-xl hover:bg-amber-700 shadow-md cursor-pointer">Confirm Order</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ QUOTE SUBMISSION MODAL ═══ */}
+      {showQuoteModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <form onSubmit={handleQuoteSubmit}>
+              <div className="p-6 border-b border-slate-100 bg-gradient-to-br from-violet-50 to-indigo-50/30">
+                <h3 className="text-xl font-black text-slate-900">Submit Quote</h3>
+                <p className="text-sm text-slate-500 mt-1">Provide your price quote for this prescription request.</p>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Patient Needs</p>
+                  <p className="text-sm text-slate-700">{quoteFloat?.medicineList || 'No details'}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Available Items*</label>
+                  <textarea required rows={3} value={quoteForm.availableItems} onChange={e => setQuoteForm(p => ({...p, availableItems: e.target.value}))} className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 text-sm" placeholder="List the items you can provide..." />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Total Cost (₹)*</label>
+                  <input type="number" required min="0" step="0.01" value={quoteForm.totalCost} onChange={e => setQuoteForm(p => ({...p, totalCost: e.target.value}))} className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 text-sm" />
+                </div>
+              </div>
+              <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+                <button type="button" onClick={() => setShowQuoteModal(false)} className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl cursor-pointer">Cancel</button>
+                <button type="submit" className="px-5 py-2.5 bg-violet-600 text-white text-sm font-bold rounded-xl hover:bg-violet-700 shadow-md cursor-pointer">Submit Quote</button>
               </div>
             </form>
           </div>

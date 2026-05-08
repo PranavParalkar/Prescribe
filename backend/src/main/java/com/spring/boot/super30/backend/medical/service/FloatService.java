@@ -204,8 +204,13 @@ public class FloatService {
                 .collect(Collectors.toList());
 
         String patientName = "";
-        if (pf.getPatient() != null) {
-            patientName = (pf.getPatient().getFirstName() + " " + pf.getPatient().getLastName()).trim();
+        if (pf.getPatient() != null && pf.getPatient().getUser() != null) {
+            User u = pf.getPatient().getUser();
+            if (u.getFirstName() != null) {
+                patientName = (u.getFirstName() + " " + (u.getLastName() != null ? u.getLastName() : "")).trim();
+            } else {
+                patientName = u.getEmail();
+            }
         }
 
         return FloatPrescriptionResponse.builder()

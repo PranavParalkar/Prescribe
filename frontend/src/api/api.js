@@ -455,3 +455,41 @@ export function registerMedical(data) {
 export function getMedicalProfile() {
   return request('GET', '/api/medicals/profile')
 }
+
+// ─── Inventory ──────────────────────────────────────────────────────────────
+
+export function getInventory() {
+  return request('GET', '/api/medicals/inventory')
+}
+
+export function addInventoryItem(data) {
+  return request('POST', '/api/medicals/inventory', data)
+}
+
+export function updateInventoryItem(itemId, data) {
+  return request('PUT', `/api/medicals/inventory/${itemId}`, data)
+}
+
+export function deleteInventoryItem(itemId) {
+  return request('DELETE', `/api/medicals/inventory/${itemId}`)
+}
+
+export function getLowStockAlerts() {
+  return request('GET', '/api/medicals/alerts/low-stock')
+}
+
+export function getExpiringAlerts() {
+  return request('GET', '/api/medicals/alerts/expiring')
+}
+
+export function getMedicalDashboardStats() {
+  return request('GET', '/api/medicals/dashboard-stats')
+}
+
+export function searchMedicines(query) {
+  return request('GET', '/api/medicals/search', undefined, { medicine: query })
+}
+
+export function placeOrder(data) {
+  return request('POST', '/api/medicals/orders/place', data)
+}

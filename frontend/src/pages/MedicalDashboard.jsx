@@ -1,334 +1,288 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { api } from '../api/api'
-import { Store, Package, CheckCircle, Clock, AlertCircle, Eye, ArrowRight, ShieldCheck, RefreshCw, IndianRupee } from 'lucide-react'
+import { getInventory, addInventoryItem, updateInventoryItem, deleteInventoryItem, getLowStockAlerts, getExpiringAlerts, getMedicalDashboardStats } from '../api/api'
+import { Store, Package, CheckCircle, Clock, AlertCircle, Eye, ArrowRight, ShieldCheck, RefreshCw, IndianRupee, Plus, Pencil, Trash2, AlertTriangle, X, Search, ShoppingBag, Bell, BarChart3 } from 'lucide-react'
+
+const TABS = [
+  { id: 'orders', label: 'Orders', icon: ShoppingBag },
+  { id: 'inventory', label: 'Inventory', icon: Package },
+  { id: 'alerts', label: 'Alerts', icon: Bell },
+]
 
 export default function MedicalDashboard() {
+  const [tab, setTab] = useState('orders')
   const [orders, setOrders] = useState([])
+  const [inventory, setInventory] = useState([])
+  const [lowStock, setLowStock] = useState([])
+  const [expiring, setExpiring] = useState([])
+  const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
+  const [invSearch, setInvSearch] = useState('')
 
-  // Respond Modal State
-  const [showRespondModal, setShowRespondModal] = useState(false)
-  const [activeOrder, setActiveOrder] = useState(null)
-  const [availableItems, setAvailableItems] = useState('')
-  const [totalCost, setTotalCost] = useState('')
-
-  // Complete Modal State
+  // Modals
+  const [showItemModal, setShowItemModal] = useState(false)
+  const [editingItem, setEditingItem] = useState(null)
   const [showCompleteModal, setShowCompleteModal] = useState(false)
+  const [activeOrder, setActiveOrder] = useState(null)
   const [patientId, setPatientId] = useState('')
 
-  useEffect(() => {
-    fetchOrders()
+  // Item form
+  const [itemForm, setItemForm] = useState({ medicineName:'', genericName:'', manufacturer:'', batchNumber:'', quantity:0, price:0, expiryDate:'', category:'', lowStockThreshold:10 })
+
+  const fetchAll = useCallback(async () => {
+    try {
+      const [ordersRes, invRes, statsRes, lsRes, expRes] = await Promise.all([
+        api.get('/api/medicals/orders/medical'),
+        getInventory().catch(()=>[]),
+        getMedicalDashboardStats().catch(()=>null),
+        getLowStockAlerts().catch(()=>[]),
+        getExpiringAlerts().catch(()=>[]),
+      ])
+      setOrders(ordersRes.data || [])
+      setInventory(invRes || [])
+      setStats(statsRes)
+      setLowStock(lsRes || [])
+      setExpiring(expRes || [])
+    } catch(e) { console.error(e) }
+    finally { setLoading(false) }
   }, [])
 
-  const fetchOrders = async () => {
-    setRefreshing(true)
-    try {
-      const res = await api.get('/api/medicals/orders/medical')
-      setOrders(res.data)
-    } catch (err) {
-      console.error('Error fetching orders', err)
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
+  useEffect(() => { fetchAll() }, [fetchAll])
+
+  const openAddItem = () => {
+    setEditingItem(null)
+    setItemForm({ medicineName:'', genericName:'', manufacturer:'', batchNumber:'', quantity:0, price:0, expiryDate:'', category:'', lowStockThreshold:10 })
+    setShowItemModal(true)
   }
 
-  const handleRespondClick = (order) => {
-    setActiveOrder(order)
-    setAvailableItems(order.availableItems || '')
-    setTotalCost(order.totalCost || '')
-    setShowRespondModal(true)
+  const openEditItem = (item) => {
+    setEditingItem(item)
+    setItemForm({ medicineName:item.medicineName||'', genericName:item.genericName||'', manufacturer:item.manufacturer||'', batchNumber:item.batchNumber||'', quantity:item.quantity||0, price:item.price||0, expiryDate:item.expiryDate||'', category:item.category||'', lowStockThreshold:item.lowStockThreshold||10 })
+    setShowItemModal(true)
   }
 
-  const handleRespondSubmit = async (e) => {
+  const handleItemSubmit = async (e) => {
     e.preventDefault()
     try {
-      await api.post(`/api/medicals/orders/${activeOrder.id}/respond`, {
-        availableItems,
-        totalCost: parseFloat(totalCost)
-      })
-      setShowRespondModal(false)
-      fetchOrders()
-    } catch (err) {
-      console.error('Error responding to order', err)
-      alert('Error responding to order')
-    }
+      const payload = { ...itemForm, quantity: parseInt(itemForm.quantity), price: parseFloat(itemForm.price), lowStockThreshold: parseInt(itemForm.lowStockThreshold), expiryDate: itemForm.expiryDate || null }
+      if (editingItem) { await updateInventoryItem(editingItem.id, payload) }
+      else { await addInventoryItem(payload) }
+      setShowItemModal(false)
+      fetchAll()
+    } catch(e) { alert('Error: ' + e.message) }
   }
 
-  const handleCompleteClick = (order) => {
-    setActiveOrder(order)
-    setPatientId('')
-    setShowCompleteModal(true)
+  const handleDeleteItem = async (id) => {
+    if (!confirm('Delete this item?')) return
+    try { await deleteInventoryItem(id); fetchAll() } catch(e) { alert('Error: ' + e.message) }
   }
+
+  const handleReadyClick = async (order) => {
+    try { await api.post(`/api/medicals/orders/${order.id}/ready`); fetchAll() } catch(e) { alert('Error: ' + e.message) }
+  }
+
+  const handleCompleteClick = (order) => { setActiveOrder(order); setPatientId(''); setShowCompleteModal(true) }
 
   const handleCompleteSubmit = async (e) => {
     e.preventDefault()
-    try {
-      await api.post(`/api/medicals/orders/${activeOrder.id}/complete`, {
-        patientId
-      })
-      setShowCompleteModal(false)
-      fetchOrders()
-    } catch (err) {
-      console.error('Error completing order', err)
-      alert('Error completing order. Please verify Patient ID.')
-    }
+    try { await api.post(`/api/medicals/orders/${activeOrder.id}/complete`, { patientId }); setShowCompleteModal(false); fetchAll() } catch(e) { alert('Error completing order. Verify Patient ID.') }
   }
 
   const getStatusBadge = (status) => {
-    switch (status) {
-      case 'REQUESTED': return <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-yellow-50 text-yellow-700 text-xs rounded-full font-bold uppercase tracking-wider border border-yellow-200 shadow-sm"><AlertCircle className="w-3.5 h-3.5" /> New Request</span>
-      case 'RESPONDED': return <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 text-xs rounded-full font-bold uppercase tracking-wider border border-blue-200 shadow-sm"><Clock className="w-3.5 h-3.5" /> Waiting for Patient</span>
-      case 'ACCEPTED': return <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 text-xs rounded-full font-bold uppercase tracking-wider border border-emerald-200 shadow-sm"><CheckCircle className="w-3.5 h-3.5" /> Ready for Pickup</span>
-      case 'COMPLETED': return <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-50 text-slate-700 text-xs rounded-full font-bold uppercase tracking-wider border border-slate-200 shadow-sm"><Package className="w-3.5 h-3.5" /> Completed</span>
-      default: return <span className="px-2 py-1 bg-slate-100 text-slate-800 text-xs rounded-full font-medium">{status}</span>
+    const map = {
+      'REQUESTED': ['bg-yellow-50 text-yellow-700 border-yellow-200', AlertCircle, 'New Request'],
+      'CONFIRMED': ['bg-blue-50 text-blue-700 border-blue-200', Clock, 'Confirmed'],
+      'ACCEPTED': ['bg-indigo-50 text-indigo-700 border-indigo-200', CheckCircle, 'Paid'],
+      'READY_FOR_PICKUP': ['bg-emerald-50 text-emerald-700 border-emerald-200', Package, 'Ready'],
+      'COMPLETED': ['bg-slate-50 text-slate-600 border-slate-200', CheckCircle, 'Done'],
+      'CANCELLED': ['bg-red-50 text-red-600 border-red-200', X, 'Cancelled'],
     }
+    const [cls, Icon, label] = map[status] || ['bg-slate-50 text-slate-600 border-slate-200', Clock, status]
+    return <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs rounded-full font-bold uppercase tracking-wider border shadow-sm ${cls}`}><Icon className="w-3.5 h-3.5" />{label}</span>
   }
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <svg className="animate-spin h-8 w-8 text-teal-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <p className="text-slate-500 font-medium">Loading dashboard...</p>
-      </div>
-    )
-  }
+  const filteredInv = inventory.filter(i => i.medicineName?.toLowerCase().includes(invSearch.toLowerCase()) || i.genericName?.toLowerCase().includes(invSearch.toLowerCase()) || i.category?.toLowerCase().includes(invSearch.toLowerCase()))
+
+  const totalAlerts = (lowStock?.length || 0) + (expiring?.length || 0)
+
+  if (loading) return <div className="flex flex-col items-center justify-center min-h-[60vh]"><svg className="animate-spin h-8 w-8 text-teal-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><p className="text-slate-500 font-medium">Loading dashboard...</p></div>
 
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-teal-400 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg shadow-teal-500/30">
-              <Store className="w-6 h-6 text-white" />
-            </div>
+            <div className="w-12 h-12 bg-gradient-to-br from-teal-400 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg shadow-teal-500/30"><Store className="w-6 h-6 text-white" /></div>
             Store Dashboard
           </h1>
-          <p className="text-slate-500 mt-2 font-medium">Manage incoming prescription orders and provide quotations.</p>
+          <p className="text-slate-500 mt-2 font-medium">Manage inventory, orders, and alerts.</p>
         </div>
-        
-        <div className="flex gap-4 items-center flex-wrap sm:flex-nowrap">
-          <div className="bg-white px-5 py-3 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center flex-1 sm:flex-none">
-            <span className="text-2xl font-black text-teal-600 leading-none">{orders.filter(o => o.status === 'REQUESTED').length}</span>
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mt-1 text-center">New Orders</span>
-          </div>
-          <div className="bg-white px-5 py-3 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center flex-1 sm:flex-none">
-            <span className="text-2xl font-black text-emerald-600 leading-none">{orders.filter(o => o.status === 'ACCEPTED').length}</span>
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mt-1 text-center">To Fulfill</span>
-          </div>
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 px-5 py-3 rounded-2xl border border-slate-700 shadow-sm flex flex-col items-center justify-center text-white flex-1 sm:flex-none">
-            <span className="text-2xl font-black leading-none flex items-center">
-              <IndianRupee className="w-5 h-5 mr-0.5" />
-              {orders.filter(o => o.status === 'COMPLETED').reduce((acc, order) => acc + (order.totalCost || 0), 0).toLocaleString()}
-            </span>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-1 text-center">Total Revenue</span>
-          </div>
-          <button 
-            onClick={fetchOrders}
-            disabled={refreshing}
-            className="w-12 h-12 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center hover:bg-slate-50 hover:border-slate-300 transition-all text-slate-500 hover:text-teal-600 disabled:opacity-50 shrink-0 cursor-pointer"
-          >
-            <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-200 overflow-hidden">
-        {orders.length === 0 ? (
-          <div className="p-16 text-center flex flex-col items-center">
-            <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
-              <Package className="w-10 h-10 text-slate-300" />
+        <div className="flex gap-3 flex-wrap">
+          {[
+            { label:'Inventory', value: stats?.totalInventoryItems ?? inventory.length, color:'text-teal-600' },
+            { label:'Low Stock', value: stats?.lowStockCount ?? lowStock.length, color:'text-amber-600' },
+            { label:'New Orders', value: orders.filter(o=>o.status==='CONFIRMED'||o.status==='ACCEPTED').length, color:'text-blue-600' },
+          ].map(s => (
+            <div key={s.label} className="bg-white px-4 py-2 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center min-w-[80px]">
+              <span className={`text-xl font-black leading-none ${s.color}`}>{s.value}</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">{s.label}</span>
             </div>
-            <h3 className="text-xl font-bold text-slate-800 mb-2">No Active Orders</h3>
-            <p className="text-slate-500 max-w-sm mx-auto">When patients forward their prescriptions to your store, they will appear here.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold uppercase tracking-wider text-slate-500">
-                  <th className="p-5">Order ID</th>
-                  <th className="p-5">Date</th>
-                  <th className="p-5">Status</th>
-                  <th className="p-5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {orders.map((order) => (
-                  <tr key={order.id} className="hover:bg-slate-50/80 transition-all duration-300 group">
-                    <td className="p-5 align-middle">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center text-teal-700 group-hover:scale-110 transition-transform">
-                          <Package className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <div className="text-sm font-bold text-slate-800 font-mono">
-                            {order.id.split('-')[0]}
-                          </div>
-                          <div className="text-xs text-slate-500 font-medium">Ref: {order.prescriptionId.split('-')[0]}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-5 align-middle">
-                      <div className="text-sm font-semibold text-slate-700">
-                        {new Date(order.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </div>
-                      <div className="text-xs text-slate-400">
-                        {new Date(order.createdAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    </td>
-                    <td className="p-5 align-middle">
-                      {getStatusBadge(order.status)}
-                    </td>
-                    <td className="p-5 align-middle text-right">
-                      {order.status === 'REQUESTED' && (
-                        <div className="flex justify-end gap-2">
-                          <a
-                            href={`/prescription/${order.prescriptionId}`}
-                            target="_blank" rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl hover:border-slate-300 hover:bg-slate-50 transition-all shadow-sm"
-                          >
-                            <Eye className="w-4 h-4" /> View Rx
-                          </a>
-                          <button
-                            onClick={() => handleRespondClick(order)}
-                            className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-white text-sm font-bold rounded-xl hover:from-teal-600 hover:to-emerald-600 transition-all shadow-md shadow-teal-500/20"
-                          >
-                            Quote <ArrowRight className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )}
-                      {order.status === 'ACCEPTED' && (
-                        <button
-                          onClick={() => handleCompleteClick(order)}
-                          className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl hover:bg-emerald-600 transition-all shadow-md shadow-emerald-500/20 animate-pulse hover:animate-none"
-                        >
-                          <ShieldCheck className="w-4 h-4" /> Verify & Handover
-                        </button>
-                      )}
-                      {order.status === 'RESPONDED' && (
-                        <span className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold text-slate-400 bg-slate-50 rounded-xl border border-slate-100">
-                          Awaiting Customer
-                        </span>
-                      )}
-                      {order.status === 'COMPLETED' && (
-                        <span className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold text-slate-400">
-                          <CheckCircle className="w-4 h-4 text-emerald-500" /> Done
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+          ))}
+          <button onClick={fetchAll} className="w-10 h-10 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center hover:bg-slate-50 transition-all text-slate-500 hover:text-teal-600 cursor-pointer self-center"><RefreshCw className="w-4 h-4" /></button>
+        </div>
       </div>
 
-      {/* Respond Modal */}
-      {showRespondModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-300">
-            <form onSubmit={handleRespondSubmit}>
-              <div className="p-8 border-b border-slate-100 bg-gradient-to-br from-teal-50 to-emerald-50/30">
-                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm text-teal-600 mb-4">
-                  <Package className="w-6 h-6" />
-                </div>
-                <h3 className="text-2xl font-black text-slate-900">Provide Quotation</h3>
-                <p className="text-sm font-medium text-slate-500 mt-1">Review the prescription and enter availability and total cost.</p>
+      {/* Tabs */}
+      <div className="flex gap-1 bg-slate-100 rounded-2xl p-1 mb-6">
+        {TABS.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)} className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${tab === t.id ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+            <t.icon className="w-4 h-4" />
+            {t.label}
+            {t.id === 'alerts' && totalAlerts > 0 && <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{totalAlerts}</span>}
+          </button>
+        ))}
+      </div>
+
+      {/* ═══ ORDERS TAB ═══ */}
+      {tab === 'orders' && (
+        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-200 overflow-hidden">
+          {orders.length === 0 ? (
+            <div className="p-16 text-center flex flex-col items-center"><div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6"><Package className="w-10 h-10 text-slate-300" /></div><h3 className="text-xl font-bold text-slate-800 mb-2">No Orders Yet</h3><p className="text-slate-500 max-w-sm">Orders from patients will appear here.</p></div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead><tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold uppercase tracking-wider text-slate-500"><th className="p-5">Order</th><th className="p-5">Items</th><th className="p-5">Total</th><th className="p-5">Date</th><th className="p-5">Status</th><th className="p-5 text-right">Actions</th></tr></thead>
+                <tbody className="divide-y divide-slate-100">
+                  {orders.map(order => (
+                    <tr key={order.id} className="hover:bg-slate-50/80 transition-all group">
+                      <td className="p-5"><div className="text-sm font-bold text-slate-800 font-mono">{order.id?.split('-')[0]}</div></td>
+                      <td className="p-5"><div className="text-sm text-slate-600 max-w-xs truncate">{order.items?.map(i => `${i.medicineName} x${i.quantity}`).join(', ') || order.availableItems || '—'}</div></td>
+                      <td className="p-5"><div className="text-sm font-bold text-slate-800">₹{order.totalCost?.toFixed(2) || '0.00'}</div></td>
+                      <td className="p-5"><div className="text-sm text-slate-500">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '—'}</div></td>
+                      <td className="p-5">{getStatusBadge(order.status)}</td>
+                      <td className="p-5 text-right">
+                        {(order.status === 'CONFIRMED' || order.status === 'ACCEPTED') && <button onClick={() => handleReadyClick(order)} className="px-4 py-2 bg-teal-500 text-white text-sm font-bold rounded-xl hover:bg-teal-600 transition-all shadow-sm cursor-pointer">Mark Ready</button>}
+                        {order.status === 'READY_FOR_PICKUP' && <button onClick={() => handleCompleteClick(order)} className="px-4 py-2 bg-emerald-500 text-white text-sm font-bold rounded-xl hover:bg-emerald-600 transition-all shadow-sm cursor-pointer animate-pulse hover:animate-none"><ShieldCheck className="w-4 h-4 inline mr-1" />Handover</button>}
+                        {order.status === 'COMPLETED' && <span className="text-sm text-slate-400"><CheckCircle className="w-4 h-4 inline text-emerald-500 mr-1" />Done</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══ INVENTORY TAB ═══ */}
+      {tab === 'inventory' && (
+        <div>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+            <div className="relative flex-1 max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><input type="text" placeholder="Search inventory..." value={invSearch} onChange={e => setInvSearch(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white" /></div>
+            <button onClick={openAddItem} className="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-white text-sm font-bold rounded-xl hover:from-teal-600 hover:to-emerald-600 shadow-md shadow-teal-500/20 flex items-center gap-2 cursor-pointer"><Plus className="w-4 h-4" />Add Medicine</button>
+          </div>
+          <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-200 overflow-hidden">
+            {filteredInv.length === 0 ? (
+              <div className="p-12 text-center"><Package className="w-10 h-10 text-slate-300 mx-auto mb-3" /><p className="text-slate-500 font-medium">No inventory items. Add your first medicine above.</p></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead><tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold uppercase tracking-wider text-slate-500"><th className="p-4">Medicine</th><th className="p-4">Category</th><th className="p-4">Stock</th><th className="p-4">Price</th><th className="p-4">Expiry</th><th className="p-4">Status</th><th className="p-4 text-right">Actions</th></tr></thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredInv.map(item => (
+                      <tr key={item.id} className="hover:bg-slate-50/80 transition-all">
+                        <td className="p-4"><div className="text-sm font-bold text-slate-800">{item.medicineName}</div>{item.genericName && <div className="text-xs text-slate-400">{item.genericName}</div>}{item.manufacturer && <div className="text-xs text-slate-400">{item.manufacturer}</div>}</td>
+                        <td className="p-4"><span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-md">{item.category || 'General'}</span></td>
+                        <td className="p-4"><span className={`text-sm font-bold ${item.lowStock ? 'text-red-600' : 'text-slate-800'}`}>{item.quantity}</span>{item.lowStock && <div className="text-[10px] text-red-500 font-bold">LOW STOCK</div>}</td>
+                        <td className="p-4"><span className="text-sm font-bold text-slate-800">₹{item.price?.toFixed(2)}</span></td>
+                        <td className="p-4">{item.expiryDate ? <span className={`text-sm ${item.expired ? 'text-red-600 font-bold' : item.expiringSoon ? 'text-amber-600 font-bold' : 'text-slate-600'}`}>{item.expiryDate}{item.expired && ' ⚠ EXPIRED'}</span> : <span className="text-slate-400 text-sm">—</span>}</td>
+                        <td className="p-4">{item.expired ? <span className="px-2 py-1 bg-red-50 text-red-700 text-xs rounded-full font-bold border border-red-200">Expired</span> : item.lowStock ? <span className="px-2 py-1 bg-amber-50 text-amber-700 text-xs rounded-full font-bold border border-amber-200">Low Stock</span> : <span className="px-2 py-1 bg-emerald-50 text-emerald-700 text-xs rounded-full font-bold border border-emerald-200">In Stock</span>}</td>
+                        <td className="p-4 text-right"><div className="flex justify-end gap-2"><button onClick={() => openEditItem(item)} className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-all cursor-pointer"><Pencil className="w-4 h-4" /></button><button onClick={() => handleDeleteItem(item.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all cursor-pointer"><Trash2 className="w-4 h-4" /></button></div></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div className="p-8 space-y-6">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Medicines Available</label>
-                  <textarea
-                    required
-                    value={availableItems}
-                    onChange={(e) => setAvailableItems(e.target.value)}
-                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 resize-none h-28 bg-slate-50 focus:bg-white transition-colors"
-                    placeholder="e.g. Paracetamol 500mg (10 tabs)&#10;Amoxicillin 250mg (Not available)"
-                  />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ ALERTS TAB ═══ */}
+      {tab === 'alerts' && (
+        <div className="space-y-6">
+          {lowStock.length > 0 && (
+            <div>
+              <h3 className="text-sm font-bold text-amber-700 uppercase tracking-wider mb-3 flex items-center gap-2"><AlertTriangle className="w-4 h-4" />Low Stock ({lowStock.length})</h3>
+              <div className="grid gap-3">{lowStock.map(item => (
+                <div key={item.id} className="bg-white border border-amber-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+                  <div><div className="font-bold text-slate-800">{item.medicineName}</div><div className="text-xs text-slate-500">{item.genericName || item.category || ''}</div></div>
+                  <div className="text-right"><div className="text-lg font-black text-amber-600">{item.quantity}</div><div className="text-[10px] text-slate-400">Threshold: {item.lowStockThreshold}</div></div>
                 </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Total Estimated Cost (₹)</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      step="1"
-                      value={totalCost}
-                      onChange={(e) => setTotalCost(e.target.value)}
-                      className="w-full pl-8 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-slate-50 focus:bg-white transition-colors font-bold text-slate-800"
-                      placeholder="0"
-                    />
-                  </div>
+              ))}</div>
+            </div>
+          )}
+          {expiring.length > 0 && (
+            <div>
+              <h3 className="text-sm font-bold text-red-700 uppercase tracking-wider mb-3 flex items-center gap-2"><AlertCircle className="w-4 h-4" />Expiring / Expired ({expiring.length})</h3>
+              <div className="grid gap-3">{expiring.map(item => (
+                <div key={item.id} className={`bg-white border rounded-2xl p-4 flex items-center justify-between shadow-sm ${item.expired ? 'border-red-300' : 'border-amber-200'}`}>
+                  <div><div className="font-bold text-slate-800">{item.medicineName}</div><div className="text-xs text-slate-500">Batch: {item.batchNumber || 'N/A'}</div></div>
+                  <div className="text-right"><div className={`text-sm font-bold ${item.expired ? 'text-red-600' : 'text-amber-600'}`}>{item.expiryDate}</div><div className="text-[10px] text-slate-400">{item.expired ? 'EXPIRED' : 'Expiring Soon'}</div></div>
                 </div>
+              ))}</div>
+            </div>
+          )}
+          {totalAlerts === 0 && <div className="text-center py-16"><CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-3" /><h3 className="text-lg font-bold text-slate-800">All Clear!</h3><p className="text-slate-500">No stock or expiry alerts.</p></div>}
+        </div>
+      )}
+
+      {/* ═══ ADD/EDIT ITEM MODAL ═══ */}
+      {showItemModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto">
+            <form onSubmit={handleItemSubmit}>
+              <div className="p-6 border-b border-slate-100 bg-gradient-to-br from-teal-50 to-emerald-50/30">
+                <h3 className="text-xl font-black text-slate-900">{editingItem ? 'Edit Medicine' : 'Add Medicine'}</h3>
+              </div>
+              <div className="p-6 space-y-4">
+                {[
+                  { key:'medicineName', label:'Medicine Name*', type:'text', required:true },
+                  { key:'genericName', label:'Generic Name', type:'text' },
+                  { key:'manufacturer', label:'Manufacturer', type:'text' },
+                  { key:'batchNumber', label:'Batch Number', type:'text' },
+                  { key:'category', label:'Category', type:'text' },
+                ].map(f => <div key={f.key}><label className="block text-sm font-bold text-slate-700 mb-1">{f.label}</label><input type={f.type} required={f.required} value={itemForm[f.key]} onChange={e => setItemForm(p=>({...p,[f.key]:e.target.value}))} className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 text-sm" /></div>)}
+                <div className="grid grid-cols-3 gap-3">
+                  <div><label className="block text-sm font-bold text-slate-700 mb-1">Quantity*</label><input type="number" required min="0" value={itemForm.quantity} onChange={e => setItemForm(p=>({...p,quantity:e.target.value}))} className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 text-sm" /></div>
+                  <div><label className="block text-sm font-bold text-slate-700 mb-1">Price (₹)*</label><input type="number" required min="0" step="0.01" value={itemForm.price} onChange={e => setItemForm(p=>({...p,price:e.target.value}))} className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 text-sm" /></div>
+                  <div><label className="block text-sm font-bold text-slate-700 mb-1">Low Alert</label><input type="number" min="1" value={itemForm.lowStockThreshold} onChange={e => setItemForm(p=>({...p,lowStockThreshold:e.target.value}))} className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 text-sm" /></div>
+                </div>
+                <div><label className="block text-sm font-bold text-slate-700 mb-1">Expiry Date</label><input type="date" value={itemForm.expiryDate} onChange={e => setItemForm(p=>({...p,expiryDate:e.target.value}))} className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 text-sm" /></div>
               </div>
               <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
-                <button
-                  type="button"
-                  onClick={() => setShowRespondModal(false)}
-                  className="px-6 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 bg-teal-600 text-white text-sm font-bold rounded-xl hover:bg-teal-700 shadow-md shadow-teal-500/20 transition-all"
-                >
-                  Submit Quote
-                </button>
+                <button type="button" onClick={() => setShowItemModal(false)} className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl cursor-pointer">Cancel</button>
+                <button type="submit" className="px-5 py-2.5 bg-teal-600 text-white text-sm font-bold rounded-xl hover:bg-teal-700 shadow-md cursor-pointer">{editingItem ? 'Update' : 'Add Item'}</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Complete Modal */}
+      {/* ═══ COMPLETE MODAL ═══ */}
       {showCompleteModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden">
             <form onSubmit={handleCompleteSubmit}>
-              <div className="p-8 border-b border-slate-100 bg-gradient-to-br from-emerald-50 to-teal-50/30">
-                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm text-emerald-600 mb-4">
-                  <ShieldCheck className="w-6 h-6" />
-                </div>
-                <h3 className="text-2xl font-black text-slate-900">Verify Patient Handover</h3>
-                <p className="text-sm font-medium text-slate-500 mt-1">To securely complete this order, enter the unique Patient ID provided by the customer.</p>
+              <div className="p-6 border-b border-slate-100 bg-gradient-to-br from-emerald-50 to-teal-50/30">
+                <h3 className="text-xl font-black text-slate-900">Verify Patient Handover</h3>
+                <p className="text-sm text-slate-500 mt-1">Enter the Patient ID to complete.</p>
               </div>
-              <div className="p-8">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Patient Unique ID</label>
-                  <input
-                    type="text"
-                    required
-                    value={patientId}
-                    onChange={(e) => setPatientId(e.target.value)}
-                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50 focus:bg-white transition-colors font-mono font-bold tracking-wider text-slate-800 uppercase"
-                    placeholder="PAT-XXXXXXXX"
-                  />
-                  <p className="text-xs font-medium text-slate-400 mt-2">The patient can find this ID in their profile or documents.</p>
-                </div>
-              </div>
+              <div className="p-6"><input type="text" required value={patientId} onChange={e => setPatientId(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 font-mono font-bold tracking-wider uppercase" placeholder="PAT-XXXXXXXX" /></div>
               <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
-                <button
-                  type="button"
-                  onClick={() => setShowCompleteModal(false)}
-                  className="px-6 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 shadow-md shadow-emerald-500/20 transition-all"
-                >
-                  Verify & Complete
-                </button>
+                <button type="button" onClick={() => setShowCompleteModal(false)} className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl cursor-pointer">Cancel</button>
+                <button type="submit" className="px-5 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 shadow-md cursor-pointer">Verify & Complete</button>
               </div>
             </form>
           </div>

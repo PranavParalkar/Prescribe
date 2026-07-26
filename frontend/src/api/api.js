@@ -1,10 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Prescribe API — centralised fetch wrapper
-// Backend: Spring Boot on http://localhost:8080
+// Backend: Spring Boot on http://localhost:8081
 // All endpoints documented in implementation_plan.md
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BASE_URL = 'http://localhost:8080'
+const BASE_URL = 'http://localhost:8081'
 
 /** Pull JWT from localStorage (set by AuthContext after login/register) */
 function getToken() {

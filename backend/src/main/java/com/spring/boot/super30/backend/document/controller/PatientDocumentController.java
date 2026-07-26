@@ -2,6 +2,7 @@ package com.spring.boot.super30.backend.document.controller;
 
 import com.spring.boot.super30.backend.document.dto.PatientDocumentResponse;
 import com.spring.boot.super30.backend.document.service.PatientDocumentService;
+import com.spring.boot.super30.backend.document.service.OcrService;
 import com.spring.boot.super30.backend.shared.enums.MedicalCategory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +27,7 @@ import java.util.UUID;
 public class PatientDocumentController {
 
     private final PatientDocumentService documentService;
+    private final OcrService ocrService;
 
     /**
      * Upload a document with category and optional metadata.
@@ -141,5 +143,17 @@ public class PatientDocumentController {
         log.info("POST /api/documents/{}/restore", id);
         PatientDocumentResponse response = documentService.initiateRestore(id);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Run OCR on a document.
+     */
+    @GetMapping("/{id}/ocr")
+    @PreAuthorize("hasAnyRole('PATIENT', 'DOCTOR')")
+    @Auditable(action = "OCR_DOCUMENT", resourceType = "DOCUMENT")
+    public ResponseEntity<Map<String, String>> extractDocumentText(@PathVariable UUID id) {
+        log.info("GET /api/documents/{}/ocr", id);
+        String extractedText = ocrService.extractTextFromDocument(id);
+        return ResponseEntity.ok(Map.of("text", extractedText));
     }
 }

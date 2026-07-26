@@ -6,3 +6,9 @@ backend/logs/application.log
 .app
 
 backend/src/main/resources/application.yaml
+
+# ─── Python OCR Service ──────────────────────────────────────────────────────
+ocr-service/venv/
+ocr-service/__pycache__/
+ocr-service/*.pyc
+ocr-service/.env

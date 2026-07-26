@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Upload, Download, Trash2, RotateCcw, FileText, Archive, Clock, AlertCircle, Eye, X,
   Folder, Stethoscope, Heart, SmilePlus, Bone, Droplets, Ear, Brain, Hospital, ClipboardList,
-  ArrowLeft, Lock, Crown } from 'lucide-react'
+  ArrowLeft, Lock, Crown, ScanLine } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { getPatientDocuments, uploadPatientDocument, getDocumentDownloadUrl, getDocumentViewUrl, deletePatientDocument, restoreDocument, getSubscriptionStatus } from '../../api/api'
+import { getPatientDocuments, uploadPatientDocument, getDocumentDownloadUrl, getDocumentViewUrl, deletePatientDocument, restoreDocument, getSubscriptionStatus, extractDocumentText } from '../../api/api'
 import UploadDocumentModal from './UploadDocumentModal'
 
 const CATEGORIES = [
@@ -38,6 +38,8 @@ export default function PatientDocuments() {
   const [uploadLimit, setUploadLimit] = useState({ used: 0, limit: 3, premiumLimit: 50, isSubscribed: false })
   const [viewingDoc, setViewingDoc] = useState(null)
   const [viewLoading, setViewLoading] = useState(false)
+  const [ocrResult, setOcrResult] = useState(null)
+  const [ocrLoading, setOcrLoading] = useState(false)
 
   const patientId = user?.entityId
 
@@ -167,6 +169,19 @@ export default function PatientDocuments() {
       if (activeCategory) fetchCategoryDocs(activeCategory)
     } catch (e) {
       setError(e.message)
+    }
+  }
+
+  const handleOcr = async (docId, fileName) => {
+    setOcrLoading(true)
+    setError(null)
+    try {
+      const { text } = await extractDocumentText(docId)
+      setOcrResult({ text, fileName })
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setOcrLoading(false)
     }
   }
 
@@ -488,6 +503,16 @@ export default function PatientDocuments() {
                       </button>
                     ) : !isDeepArchive ? (
                       <>
+                        {/* OCR button */}
+                        <button
+                          onClick={() => handleOcr(doc.id, doc.fileName)}
+                          disabled={ocrLoading}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold text-purple-600
+                            hover:bg-purple-50 rounded-lg transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          <ScanLine className="w-3 h-3" />
+                          AI Scan
+                        </button>
                         {/* View button */}
                         <button
                           onClick={() => handleView(doc)}
@@ -598,6 +623,45 @@ export default function PatientDocuments() {
                   </a>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* OCR Result Modal */}
+      {ocrResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-[fadeIn_0.15s_ease-out]">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] mx-4 flex flex-col overflow-hidden animate-[scaleIn_0.2s_ease-out]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-purple-50 border border-purple-100 flex items-center justify-center">
+                  <ScanLine className="w-4 h-4 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">AI Extracted Text</h3>
+                  <p className="text-[10px] text-slate-400">From {ocrResult.fileName}</p>
+                </div>
+              </div>
+              <button onClick={() => setOcrResult(null)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer">
+                <X className="w-4 h-4 text-slate-500" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto bg-slate-50 flex-1">
+              {ocrResult.text ? (
+                <div className="whitespace-pre-wrap text-sm text-slate-700 bg-white p-4 rounded-xl border border-slate-200 shadow-sm font-mono">
+                  {ocrResult.text}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500 italic text-center">No text could be extracted from this image.</p>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-slate-100 bg-white flex justify-end">
+              <button
+                onClick={() => setOcrResult(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

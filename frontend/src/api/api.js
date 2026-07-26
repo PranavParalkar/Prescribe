@@ -415,6 +415,13 @@ export function restoreDocument(documentId) {
   return request('POST', `/api/documents/${documentId}/restore`)
 }
 
+/**
+ * Extract text from a document using AI OCR.
+ */
+export function extractDocumentText(documentId) {
+  return request('GET', `/api/documents/${documentId}/ocr`)
+}
+
 // ─── Doctor Patient Access (OTP) ─────────────────────────────────────────────
 
 /**

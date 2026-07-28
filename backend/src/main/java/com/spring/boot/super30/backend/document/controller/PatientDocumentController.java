@@ -1,5 +1,6 @@
 package com.spring.boot.super30.backend.document.controller;
 
+import com.spring.boot.super30.backend.document.dto.OcrStructuredResponse;
 import com.spring.boot.super30.backend.document.dto.PatientDocumentResponse;
 import com.spring.boot.super30.backend.document.service.PatientDocumentService;
 import com.spring.boot.super30.backend.document.service.OcrService;
@@ -146,7 +147,7 @@ public class PatientDocumentController {
     }
 
     /**
-     * Run OCR on a document.
+     * Run OCR on a document (raw text).
      */
     @GetMapping("/{id}/ocr")
     @PreAuthorize("hasAnyRole('PATIENT', 'DOCTOR')")
@@ -155,5 +156,19 @@ public class PatientDocumentController {
         log.info("GET /api/documents/{}/ocr", id);
         String extractedText = ocrService.extractTextFromDocument(id);
         return ResponseEntity.ok(Map.of("text", extractedText));
+    }
+
+    /**
+     * Run OCR on a document and return structured prescription data.
+     * Uses Gemini AI to contextually parse the extracted text into
+     * doctor info, patient info, medications, diagnosis, etc.
+     */
+    @GetMapping("/{id}/ocr/structured")
+    @PreAuthorize("hasAnyRole('PATIENT', 'DOCTOR')")
+    @Auditable(action = "OCR_STRUCTURED_DOCUMENT", resourceType = "DOCUMENT")
+    public ResponseEntity<OcrStructuredResponse> extractStructuredDocumentText(@PathVariable UUID id) {
+        log.info("GET /api/documents/{}/ocr/structured", id);
+        OcrStructuredResponse response = ocrService.extractStructuredTextFromDocument(id);
+        return ResponseEntity.ok(response);
     }
 }

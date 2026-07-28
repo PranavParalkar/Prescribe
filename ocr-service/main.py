@@ -6,7 +6,7 @@ from PIL import Image
 import pytesseract
 import os
 import json
-import google.generativeai as genai
+from openai import OpenAI
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -30,15 +30,19 @@ else:
         pytesseract.pytesseract.tesseract_cmd = env_path
         print(f"Using TESSERACT_CMD: {env_path}")
 
-# Configure Gemini API
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    print("Gemini API configured successfully.")
+# Configure Groq API
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+client = None
+if GROQ_API_KEY:
+    client = OpenAI(
+        api_key=GROQ_API_KEY,
+        base_url="https://api.groq.com/openai/v1",
+    )
+    print("Groq API configured successfully.")
 else:
-    print("WARNING: GEMINI_API_KEY not set. Structured OCR endpoint will return raw text only.")
+    print("WARNING: GROQ_API_KEY not set. Structured OCR endpoint will return raw text only.")
 
-print("OCR Service ready (Tesseract + Gemini)!")
+print("OCR Service ready (Tesseract + Groq)!")
 
 
 class OcrRequest(BaseModel):
@@ -142,46 +146,38 @@ OCR Text:
 """
 
 
-def parse_with_gemini(raw_text: str) -> dict | None:
-    """Use Gemini to parse raw OCR text into structured prescription data."""
-    if not GEMINI_API_KEY:
-        print("Gemini API key not configured. Skipping structured parsing.")
+def parse_with_groq(raw_text: str) -> dict | None:
+    """Use Groq to parse raw OCR text into structured prescription data."""
+    if not client:
+        print("Groq API key not configured. Skipping structured parsing.")
         return None
 
     try:
-        model = genai.GenerativeModel("gemini-2.0-flash")
         prompt = STRUCTURED_PROMPT.replace("{ocr_text}", raw_text)
 
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.1,
-                max_output_tokens=2048,
-            ),
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": "You are a helpful medical document parser. Always output strictly valid JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.1,
+            max_tokens=2048,
+            response_format={"type": "json_object"},
         )
 
-        response_text = response.text.strip()
-
-        # Clean up response — remove markdown fences if present
-        if response_text.startswith("```"):
-            # Remove ```json or ``` prefix and trailing ```
-            lines = response_text.split("\n")
-            if lines[0].startswith("```"):
-                lines = lines[1:]
-            if lines and lines[-1].strip() == "```":
-                lines = lines[:-1]
-            response_text = "\n".join(lines)
+        response_text = response.choices[0].message.content.strip()
 
         parsed = json.loads(response_text)
-        print(f"Gemini structured parsing successful. Keys: {list(parsed.keys())}")
+        print(f"Groq structured parsing successful. Keys: {list(parsed.keys())}")
         return parsed
 
     except json.JSONDecodeError as e:
-        print(f"Gemini returned invalid JSON: {e}")
+        print(f"Groq returned invalid JSON: {e}")
         print(f"Raw response: {response_text[:500]}")
         return None
     except Exception as e:
-        print(f"Gemini parsing error: {e}")
+        print(f"Groq parsing error: {e}")
         return None
 
 
@@ -208,8 +204,8 @@ async def extract_structured_text(req: OcrRequest):
                 "structured_data": None
             }
 
-        # Step 2: Parse with Gemini
-        structured_data = parse_with_gemini(raw_text)
+        # Step 2: Parse with Groq
+        structured_data = parse_with_groq(raw_text)
 
         return {
             "raw_text": raw_text,

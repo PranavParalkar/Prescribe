@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Upload, Download, Trash2, RotateCcw, FileText, Archive, Clock, AlertCircle, Eye, X,
   Folder, Stethoscope, Heart, SmilePlus, Bone, Droplets, Ear, Brain, Hospital, ClipboardList,
-  ArrowLeft, Lock, Crown, ScanLine } from 'lucide-react'
+  ArrowLeft, Lock, Crown, ScanLine, User, Pill, FlaskConical, CalendarCheck, FileSearch, ChevronDown, ChevronUp } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { getPatientDocuments, uploadPatientDocument, getDocumentDownloadUrl, getDocumentViewUrl, deletePatientDocument, restoreDocument, getSubscriptionStatus, extractDocumentText } from '../../api/api'
+import { getPatientDocuments, uploadPatientDocument, getDocumentDownloadUrl, getDocumentViewUrl, deletePatientDocument, restoreDocument, getSubscriptionStatus, extractStructuredDocumentText } from '../../api/api'
 import UploadDocumentModal from './UploadDocumentModal'
 
 const CATEGORIES = [
@@ -176,8 +176,12 @@ export default function PatientDocuments() {
     setOcrLoading(true)
     setError(null)
     try {
-      const { text } = await extractDocumentText(docId)
-      setOcrResult({ text, fileName })
+      const result = await extractStructuredDocumentText(docId)
+      setOcrResult({
+        rawText: result.rawText,
+        structuredData: result.structuredData,
+        fileName
+      })
     } catch (e) {
       setError(e.message)
     } finally {
@@ -628,43 +632,9 @@ export default function PatientDocuments() {
         </div>
       )}
 
-      {/* OCR Result Modal */}
+      {/* OCR Structured Result Modal */}
       {ocrResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-[fadeIn_0.15s_ease-out]">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] mx-4 flex flex-col overflow-hidden animate-[scaleIn_0.2s_ease-out]">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-purple-50 border border-purple-100 flex items-center justify-center">
-                  <ScanLine className="w-4 h-4 text-purple-600" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-800">AI Extracted Text</h3>
-                  <p className="text-[10px] text-slate-400">From {ocrResult.fileName}</p>
-                </div>
-              </div>
-              <button onClick={() => setOcrResult(null)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer">
-                <X className="w-4 h-4 text-slate-500" />
-              </button>
-            </div>
-            <div className="p-6 overflow-y-auto bg-slate-50 flex-1">
-              {ocrResult.text ? (
-                <div className="whitespace-pre-wrap text-sm text-slate-700 bg-white p-4 rounded-xl border border-slate-200 shadow-sm font-mono">
-                  {ocrResult.text}
-                </div>
-              ) : (
-                <p className="text-sm text-slate-500 italic text-center">No text could be extracted from this image.</p>
-              )}
-            </div>
-            <div className="px-6 py-4 border-t border-slate-100 bg-white flex justify-end">
-              <button
-                onClick={() => setOcrResult(null)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+        <OcrStructuredModal ocrResult={ocrResult} onClose={() => setOcrResult(null)} />
       )}
 
       {/* Upload Modal */}
@@ -675,6 +645,284 @@ export default function PatientDocuments() {
           uploading={uploading}
         />
       )}
+    </div>
+  )
+}
+
+// ── Structured OCR Result Modal ──────────────────────────────────────────────
+
+function InfoCard({ icon: Icon, iconBg, label, value }) {
+  if (!value) return null
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className={`w-7 h-7 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
+        <Icon className="w-3.5 h-3.5 text-white" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">{label}</p>
+        <p className="text-xs font-semibold text-slate-700 truncate">{value}</p>
+      </div>
+    </div>
+  )
+}
+
+function SectionHeader({ icon: Icon, iconBg, title }) {
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      <div className={`w-6 h-6 rounded-md ${iconBg} flex items-center justify-center`}>
+        <Icon className="w-3 h-3 text-white" />
+      </div>
+      <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">{title}</h4>
+    </div>
+  )
+}
+
+function OcrStructuredModal({ ocrResult, onClose }) {
+  const [showRawText, setShowRawText] = useState(false)
+  const data = ocrResult.structuredData
+  const hasStructured = data && (
+    data.doctor || data.patient || data.diagnosis ||
+    (data.medications && data.medications.length > 0) ||
+    (data.labTests && data.labTests.length > 0) ||
+    data.followUp || data.notes
+  )
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-[fadeIn_0.15s_ease-out]">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[88vh] mx-4 flex flex-col overflow-hidden animate-[scaleIn_0.2s_ease-out]">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-purple-50 via-white to-indigo-50 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-200/50">
+              <ScanLine className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-800">AI Prescription Analysis</h3>
+              <p className="text-[10px] text-slate-400 font-medium">
+                {ocrResult.fileName}
+                {hasStructured && <span className="ml-1.5 text-emerald-500">• Structured data extracted</span>}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer">
+            <X className="w-4 h-4 text-slate-500" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50 space-y-5">
+
+          {hasStructured ? (
+            <>
+              {/* Doctor & Patient Info Row */}
+              {(data.doctor || data.patient || data.prescriptionDate) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                  {/* Doctor Card */}
+                  {data.doctor && (data.doctor.name || data.doctor.hospital) && (
+                    <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 space-y-2.5">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                          <Stethoscope className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Doctor</h4>
+                      </div>
+                      {data.doctor.name && (
+                        <p className="text-sm font-bold text-slate-800">{data.doctor.name}</p>
+                      )}
+                      {data.doctor.qualifications && (
+                        <p className="text-[11px] text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded-md inline-block">{data.doctor.qualifications}</p>
+                      )}
+                      {data.doctor.hospital && (
+                        <p className="text-[11px] text-slate-500 flex items-center gap-1">
+                          <Hospital className="w-3 h-3 text-slate-400" />
+                          {data.doctor.hospital}
+                        </p>
+                      )}
+                      {data.doctor.contact && (
+                        <p className="text-[11px] text-slate-400">{data.doctor.contact}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Patient Card */}
+                  {(data.patient && (data.patient.name || data.patient.age)) || data.prescriptionDate ? (
+                    <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 space-y-2.5">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+                          <User className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Patient</h4>
+                      </div>
+                      {data.patient?.name && (
+                        <p className="text-sm font-bold text-slate-800">{data.patient.name}</p>
+                      )}
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {data.patient?.age && (
+                          <span className="text-[11px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">
+                            Age: <strong className="text-slate-700">{data.patient.age}</strong>
+                          </span>
+                        )}
+                        {data.patient?.gender && (
+                          <span className="text-[11px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">
+                            {data.patient.gender}
+                          </span>
+                        )}
+                      </div>
+                      {data.prescriptionDate && (
+                        <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-1">
+                          <CalendarCheck className="w-3 h-3 text-emerald-500" />
+                          Date: <strong className="text-slate-700">{data.prescriptionDate}</strong>
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+
+              {/* Diagnosis */}
+              {data.diagnosis && (
+                <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+                  <SectionHeader icon={FileSearch} iconBg="bg-gradient-to-br from-amber-500 to-orange-500" title="Diagnosis / Chief Complaint" />
+                  <p className="text-sm text-slate-700 leading-relaxed pl-8">{data.diagnosis}</p>
+                </div>
+              )}
+
+              {/* Medications Table */}
+              {data.medications && data.medications.length > 0 && (
+                <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+                  <SectionHeader icon={Pill} iconBg="bg-gradient-to-br from-rose-500 to-pink-600" title={`Medications (${data.medications.length})`} />
+                  <div className="overflow-x-auto -mx-1">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-100">
+                          <th className="text-left py-2 px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">#</th>
+                          <th className="text-left py-2 px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Medicine</th>
+                          <th className="text-left py-2 px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dosage</th>
+                          <th className="text-left py-2 px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Frequency</th>
+                          <th className="text-left py-2 px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Duration</th>
+                          <th className="text-left py-2 px-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Instructions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.medications.map((med, i) => (
+                          <tr key={i} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors">
+                            <td className="py-2.5 px-2 text-slate-400 font-mono">{i + 1}</td>
+                            <td className="py-2.5 px-2 font-semibold text-slate-800">{med.name || '—'}</td>
+                            <td className="py-2.5 px-2 text-slate-600">
+                              {med.dosage ? (
+                                <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-semibold">{med.dosage}</span>
+                              ) : '—'}
+                            </td>
+                            <td className="py-2.5 px-2 text-slate-600">
+                              {med.frequency ? (
+                                <span className="bg-violet-50 text-violet-700 px-1.5 py-0.5 rounded font-semibold">{med.frequency}</span>
+                              ) : '—'}
+                            </td>
+                            <td className="py-2.5 px-2 text-slate-600">{med.duration || '—'}</td>
+                            <td className="py-2.5 px-2 text-slate-500 italic">{med.instructions || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Lab Tests & Follow-up Row */}
+              {((data.labTests && data.labTests.length > 0) || data.followUp) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {data.labTests && data.labTests.length > 0 && (
+                    <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+                      <SectionHeader icon={FlaskConical} iconBg="bg-gradient-to-br from-cyan-500 to-teal-500" title="Lab Tests Ordered" />
+                      <div className="flex flex-wrap gap-2 pl-8">
+                        {data.labTests.map((test, i) => (
+                          <span key={i} className="text-[11px] font-semibold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-100">
+                            {test}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {data.followUp && (
+                    <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+                      <SectionHeader icon={CalendarCheck} iconBg="bg-gradient-to-br from-green-500 to-emerald-600" title="Follow-up" />
+                      <p className="text-sm text-slate-700 pl-8 font-medium">{data.followUp}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Notes */}
+              {data.notes && (
+                <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+                  <SectionHeader icon={ClipboardList} iconBg="bg-gradient-to-br from-slate-500 to-slate-600" title="Additional Notes" />
+                  <p className="text-sm text-slate-600 leading-relaxed pl-8">{data.notes}</p>
+                </div>
+              )}
+
+              {/* Raw Text Toggle */}
+              {ocrResult.rawText && (
+                <div className="border border-slate-100 rounded-xl overflow-hidden">
+                  <button
+                    onClick={() => setShowRawText(!showRawText)}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-white hover:bg-slate-50 transition-colors cursor-pointer text-left"
+                  >
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                      <FileText className="w-3.5 h-3.5" />
+                      Raw OCR Text
+                    </span>
+                    {showRawText ? (
+                      <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+                    ) : (
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                    )}
+                  </button>
+                  {showRawText && (
+                    <div className="px-4 pb-4 bg-white">
+                      <div className="whitespace-pre-wrap text-[11px] text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-100 font-mono max-h-48 overflow-y-auto">
+                        {ocrResult.rawText}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            /* Fallback: raw text only */
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <p className="text-[11px] text-amber-700 font-medium">
+                  Structured parsing unavailable. Showing raw extracted text.
+                </p>
+              </div>
+              {ocrResult.rawText ? (
+                <div className="whitespace-pre-wrap text-sm text-slate-700 bg-white p-4 rounded-xl border border-slate-200 shadow-sm font-mono">
+                  {ocrResult.rawText}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500 italic text-center py-8">No text could be extracted from this document.</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-slate-100 bg-white flex items-center justify-between shrink-0">
+          <p className="text-[10px] text-slate-400 flex items-center gap-1">
+            <ScanLine className="w-3 h-3" />
+            Powered by Tesseract OCR + Gemini AI
+          </p>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+          >
+            Close
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

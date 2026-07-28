@@ -422,7 +422,16 @@ export function extractDocumentText(documentId) {
   return request('GET', `/api/documents/${documentId}/ocr`)
 }
 
+/**
+ * Extract structured prescription data from a document using AI OCR + Gemini.
+ * Returns { rawText, structuredData: { doctor, patient, medications, ... } }
+ */
+export function extractStructuredDocumentText(documentId) {
+  return request('GET', `/api/documents/${documentId}/ocr/structured`)
+}
+
 // ─── Doctor Patient Access (OTP) ─────────────────────────────────────────────
+
 
 /**
  * Doctor requests an OTP to access a patient's documents.

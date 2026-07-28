@@ -7,10 +7,15 @@ import pytesseract
 import os
 import json
 import google.generativeai as genai
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = FastAPI()
 
 # Configure Tesseract path for Windows
+
 # Default install location. Update if yours differs.
 tesseract_path = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 if os.path.exists(tesseract_path):

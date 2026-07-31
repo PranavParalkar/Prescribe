@@ -228,4 +228,111 @@ public class PrescriptionService {
                     .build();
         }
 
+        // ─── Analytics ──────────────────────────────────────────────────────────
+
+        public com.spring.boot.super30.backend.prescription.dto.PatientAnalyticsResponse getPatientAnalytics(String patientId) {
+            Patient patient = patientRepository.findByPatientId(patientId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Patient not found", "PATIENT_NOT_FOUND"));
+
+            List<Prescription> prescriptions = prescriptionRepository.findByPatient(patient);
+
+            long active = prescriptions.stream()
+                    .filter(p -> p.getStatus() == PrescriptionStatus.ACTIVE)
+                    .count();
+
+            // Unique doctors
+            java.util.Set<String> doctorIds = new java.util.HashSet<>();
+            prescriptions.forEach(rx -> {
+                if (rx.getDoctor() != null) doctorIds.add(rx.getDoctor().getDoctorId());
+                else if (rx.getDeletedDoctor() != null) doctorIds.add(rx.getDeletedDoctor().getDoctorId());
+            });
+
+            // Timeline
+            List<com.spring.boot.super30.backend.prescription.dto.PatientAnalyticsResponse.PrescriptionTimelineEntry> timeline =
+                    prescriptions.stream()
+                            .sorted(java.util.Comparator.comparing(Prescription::getCreatedAt, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
+                            .map(rx -> {
+                                PrescriptionVersion v = rx.getCurrentVersion();
+                                String doctorName = "Unknown";
+                                if (rx.getDoctor() != null) {
+                                    doctorName = "Dr. " + (rx.getDoctor().getUser().getFirstName() != null ? rx.getDoctor().getUser().getFirstName() : "") +
+                                            " " + (rx.getDoctor().getUser().getLastName() != null ? rx.getDoctor().getUser().getLastName() : "");
+                                } else if (rx.getDeletedDoctor() != null) {
+                                    doctorName = "Dr. " + (rx.getDeletedDoctor().getFirstName() != null ? rx.getDeletedDoctor().getFirstName() : "") +
+                                            " " + (rx.getDeletedDoctor().getLastName() != null ? rx.getDeletedDoctor().getLastName() : "");
+                                }
+                                return com.spring.boot.super30.backend.prescription.dto.PatientAnalyticsResponse.PrescriptionTimelineEntry.builder()
+                                        .date(rx.getCreatedAt() != null ? rx.getCreatedAt().toLocalDate().toString() : "")
+                                        .diagnosis(v != null ? v.getDiagnosis() : "")
+                                        .medicineCount(v != null && v.getMedicines() != null ? v.getMedicines().size() : 0)
+                                        .doctorName(doctorName.trim())
+                                        .status(rx.getStatus().name())
+                                        .build();
+                            })
+                            .collect(Collectors.toList());
+
+            // Medicine frequency
+            java.util.Map<String, Long> medCounts = new java.util.LinkedHashMap<>();
+            prescriptions.forEach(rx -> {
+                PrescriptionVersion v = rx.getCurrentVersion();
+                if (v != null && v.getMedicines() != null) {
+                    v.getMedicines().forEach(m -> {
+                        String name = m.getMedicineName();
+                        if (name != null && !name.isBlank()) {
+                            medCounts.merge(name, 1L, Long::sum);
+                        }
+                    });
+                }
+            });
+            List<com.spring.boot.super30.backend.prescription.dto.PatientAnalyticsResponse.MedicineFrequencyEntry> medicineFrequency =
+                    medCounts.entrySet().stream()
+                            .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
+                            .limit(10)
+                            .map(e -> com.spring.boot.super30.backend.prescription.dto.PatientAnalyticsResponse.MedicineFrequencyEntry.builder()
+                                    .medicineName(e.getKey())
+                                    .count(e.getValue())
+                                    .build())
+                            .collect(Collectors.toList());
+
+            // Doctor distribution
+            java.util.Map<String, long[]> doctorStats = new java.util.LinkedHashMap<>(); // key -> [count]
+            java.util.Map<String, String> doctorSpecialties = new java.util.LinkedHashMap<>();
+            prescriptions.forEach(rx -> {
+                String doctorName = "Unknown";
+                String specialty = "";
+                if (rx.getDoctor() != null) {
+                    doctorName = "Dr. " + (rx.getDoctor().getUser().getFirstName() != null ? rx.getDoctor().getUser().getFirstName() : "") +
+                            " " + (rx.getDoctor().getUser().getLastName() != null ? rx.getDoctor().getUser().getLastName() : "");
+                    specialty = rx.getDoctor().getSpecialization() != null ? rx.getDoctor().getSpecialization() : "";
+                } else if (rx.getDeletedDoctor() != null) {
+                    doctorName = "Dr. " + (rx.getDeletedDoctor().getFirstName() != null ? rx.getDeletedDoctor().getFirstName() : "") +
+                            " " + (rx.getDeletedDoctor().getLastName() != null ? rx.getDeletedDoctor().getLastName() : "");
+                    specialty = rx.getDeletedDoctor().getSpecialization() != null ? rx.getDeletedDoctor().getSpecialization() : "";
+                }
+                doctorName = doctorName.trim();
+                doctorStats.computeIfAbsent(doctorName, k -> new long[]{0});
+                doctorStats.get(doctorName)[0]++;
+                doctorSpecialties.putIfAbsent(doctorName, specialty);
+            });
+
+            List<com.spring.boot.super30.backend.prescription.dto.PatientAnalyticsResponse.DoctorDistributionEntry> doctorDistribution =
+                    doctorStats.entrySet().stream()
+                            .sorted((a, b) -> Long.compare(b.getValue()[0], a.getValue()[0]))
+                            .map(e -> com.spring.boot.super30.backend.prescription.dto.PatientAnalyticsResponse.DoctorDistributionEntry.builder()
+                                    .doctorName(e.getKey())
+                                    .specialty(doctorSpecialties.getOrDefault(e.getKey(), ""))
+                                    .prescriptionCount(e.getValue()[0])
+                                    .build())
+                            .collect(Collectors.toList());
+
+            return com.spring.boot.super30.backend.prescription.dto.PatientAnalyticsResponse.builder()
+                    .totalPrescriptions(prescriptions.size())
+                    .activePrescriptions(active)
+                    .uniqueDoctors(doctorIds.size())
+                    .prescriptionTimeline(timeline)
+                    .medicineFrequency(medicineFrequency)
+                    .doctorDistribution(doctorDistribution)
+                    .build();
+        }
+
 }

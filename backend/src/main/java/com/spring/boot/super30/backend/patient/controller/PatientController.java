@@ -3,24 +3,29 @@ package com.spring.boot.super30.backend.patient.controller;
 import com.spring.boot.super30.backend.patient.dto.CreatePatientRequest;
 import com.spring.boot.super30.backend.patient.dto.PatientResponse;
 import com.spring.boot.super30.backend.patient.dto.UpdatePatientRequest;
+import com.spring.boot.super30.backend.patient.dto.VitalRecordRequest;
+import com.spring.boot.super30.backend.patient.dto.VitalRecordResponse;
 import com.spring.boot.super30.backend.patient.service.PatientService;
+import com.spring.boot.super30.backend.patient.service.VitalService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import com.spring.boot.super30.backend.audit.annotation.Auditable;
 
+import java.util.List;
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/patients")
 @Slf4j
+@RequiredArgsConstructor
 public class PatientController {
 
     private final PatientService patientService;
-
-    public PatientController(PatientService patientService) {
-        this.patientService = patientService;
-    }
+    private final VitalService vitalService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('PATIENT', 'ADMIN')")
@@ -71,6 +76,36 @@ public class PatientController {
     public ResponseEntity<Void> deletePatientAccount(@PathVariable String patientId) {
         log.info("Received request to delete/anonymize patient account ID: {}", patientId);
         patientService.deletePatientAccount(patientId);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    //  VITALS
+    // ═════════════════════════════════════════════════════════════════════════
+
+    @PostMapping("/{patientId}/vitals")
+    @PreAuthorize("hasAnyRole('PATIENT', 'DOCTOR', 'ADMIN')")
+    public ResponseEntity<VitalRecordResponse> addVitalRecord(
+            @PathVariable String patientId,
+            @Valid @RequestBody VitalRecordRequest request) {
+        log.info("Recording vitals for patient ID: {}", patientId);
+        return ResponseEntity.ok(vitalService.addVitalRecord(patientId, request));
+    }
+
+    @GetMapping("/{patientId}/vitals")
+    @PreAuthorize("hasAnyRole('PATIENT', 'DOCTOR', 'ADMIN')")
+    public ResponseEntity<List<VitalRecordResponse>> getVitalRecords(@PathVariable String patientId) {
+        log.info("Fetching vitals for patient ID: {}", patientId);
+        return ResponseEntity.ok(vitalService.getVitalRecords(patientId));
+    }
+
+    @DeleteMapping("/{patientId}/vitals/{recordId}")
+    @PreAuthorize("hasAnyRole('PATIENT', 'ADMIN')")
+    public ResponseEntity<Void> deleteVitalRecord(
+            @PathVariable String patientId,
+            @PathVariable UUID recordId) {
+        log.info("Deleting vital record {} for patient ID: {}", recordId, patientId);
+        vitalService.deleteVitalRecord(patientId, recordId);
         return ResponseEntity.noContent().build();
     }
 }

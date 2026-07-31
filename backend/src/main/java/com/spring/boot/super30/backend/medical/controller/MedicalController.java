@@ -23,6 +23,7 @@ public class MedicalController {
     private final MedicalOrderService medicalOrderService;
     private final InventoryService inventoryService;
     private final com.spring.boot.super30.backend.medical.service.FloatService floatService;
+    private final com.spring.boot.super30.backend.medical.service.MedicalAnalyticsService medicalAnalyticsService;
 
     // ═════════════════════════════════════════════════════════════════════════
     //  STORE REGISTRATION & PROFILE
@@ -94,6 +95,12 @@ public class MedicalController {
     public ResponseEntity<DashboardStatsResponse> getDashboardStats(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return ResponseEntity.ok(inventoryService.getDashboardStats(userDetails.getUser()));
+    }
+
+    @GetMapping("/analytics")
+    public ResponseEntity<com.spring.boot.super30.backend.medical.dto.MedicalAnalyticsResponse> getAnalytics(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(medicalAnalyticsService.getAnalytics(userDetails.getUser()));
     }
 
     // ═════════════════════════════════════════════════════════════════════════

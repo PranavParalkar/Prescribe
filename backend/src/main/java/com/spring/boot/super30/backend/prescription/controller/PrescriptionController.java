@@ -106,5 +106,13 @@ public class PrescriptionController {
         log.info("Fetching prescription by ID: {}", id);
         return ResponseEntity.ok(prescriptionService.getPrescriptionById(id));
     }
+
+    @GetMapping("/patient/{patientId}/analytics")
+    @PreAuthorize("hasAnyRole('PATIENT', 'DOCTOR', 'ADMIN')")
+    public ResponseEntity<com.spring.boot.super30.backend.prescription.dto.PatientAnalyticsResponse> getPatientAnalytics(
+            @PathVariable String patientId) {
+        log.info("Fetching analytics for patient ID: {}", patientId);
+        return ResponseEntity.ok(prescriptionService.getPatientAnalytics(patientId));
+    }
 }
 

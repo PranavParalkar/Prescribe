@@ -531,3 +531,48 @@ export function submitFloatQuote(floatId, data) {
 export function selectFloatQuote(floatId, quoteId) {
   return request('POST', `/api/medicals/float/${floatId}/select/${quoteId}`)
 }
+
+// ─── Analytics ─────────────────────────────────────────────────────────────
+
+/**
+ * Get patient prescription analytics (timeline, medicine frequency, doctor distribution).
+ * @param {string} patientId
+ */
+export function getPatientAnalytics(patientId) {
+  return request('GET', `/api/prescriptions/patient/${patientId}/analytics`)
+}
+
+/**
+ * Get medical/pharmacy analytics (weekly revenue, top-selling medicines).
+ */
+export function getMedicalAnalytics() {
+  return request('GET', '/api/medicals/analytics')
+}
+
+// ─── Patient Vitals ────────────────────────────────────────────────────────
+
+/**
+ * Record a vital reading for a patient.
+ * @param {string} patientId
+ * @param {{ systolicBp, diastolicBp, weightKg, heartRate, bloodSugar, temperature, notes, recordedDate }} data
+ */
+export function addVitalRecord(patientId, data) {
+  return request('POST', `/api/patients/${patientId}/vitals`, data)
+}
+
+/**
+ * Get all vital records for a patient (chronological).
+ * @param {string} patientId
+ */
+export function getVitalRecords(patientId) {
+  return request('GET', `/api/patients/${patientId}/vitals`)
+}
+
+/**
+ * Delete a vital record.
+ * @param {string} patientId
+ * @param {string} recordId
+ */
+export function deleteVitalRecord(patientId, recordId) {
+  return request('DELETE', `/api/patients/${patientId}/vitals/${recordId}`)
+}

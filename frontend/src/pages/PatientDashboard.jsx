@@ -6,6 +6,7 @@ import Badge from '../components/ui/Badge'
 import Avatar from '../components/ui/Avatar'
 import StatCard from '../components/ui/StatCard'
 import SubscriptionBanner from '../components/ui/SubscriptionBanner'
+import PatientVitalsChart from '../components/charts/PatientVitalsChart'
 import { getPrescriptionsByPatient, getSubscriptionStatus, getPendingOtp } from '../api/api'
 import { useAuth } from '../context/AuthContext'
 
@@ -248,6 +249,9 @@ export default function PatientDashboard() {
               icon={<Crown className="w-4.5 h-4.5" />}
             />
           </div>
+
+          {/* ── Health Insights Charts ──────────────────────────── */}
+          <PatientVitalsChart patientId={user?.entityId} />
 
           {/* ── Prescriptions list ─────────────────────────────── */}
           {prescriptions.length === 0 ? (

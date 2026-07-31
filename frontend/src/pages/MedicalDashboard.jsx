@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../api/api'
 import { getInventory, addInventoryItem, updateInventoryItem, deleteInventoryItem, getLowStockAlerts, getExpiringAlerts, getMedicalDashboardStats, getFloatsForMedical, submitFloatQuote } from '../api/api'
-import { Store, Package, CheckCircle, Clock, AlertCircle, Eye, ArrowRight, ShieldCheck, RefreshCw, IndianRupee, Plus, Pencil, Trash2, AlertTriangle, X, Search, ShoppingBag, Bell, BarChart3, Send } from 'lucide-react'
+import { Store, Package, CheckCircle, Clock, AlertCircle, Eye, ArrowRight, ShieldCheck, RefreshCw, IndianRupee, Plus, Pencil, Trash2, AlertTriangle, X, Search, ShoppingBag, Bell, BarChart3, Send, TrendingUp } from 'lucide-react'
 import DashboardLayout from '../components/layout/DashboardLayout'
 import StatCard from '../components/ui/StatCard'
+import PharmacyRevenueChart from '../components/charts/PharmacyRevenueChart'
 import { useAuth } from '../context/AuthContext'
 
 const TABS = [
@@ -11,6 +12,7 @@ const TABS = [
   { id: 'floats', label: 'Float Requests', icon: Send },
   { id: 'inventory', label: 'Inventory', icon: Package },
   { id: 'alerts', label: 'Alerts', icon: Bell },
+  { id: 'analytics', label: 'Analytics', icon: TrendingUp },
 ]
 
 export default function MedicalDashboard() {
@@ -347,6 +349,11 @@ export default function MedicalDashboard() {
           )}
           {totalAlerts === 0 && <div className="text-center py-16"><CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-3" /><h3 className="text-lg font-bold text-slate-800">All Clear!</h3><p className="text-slate-500">No stock or expiry alerts.</p></div>}
         </div>
+      )}
+
+      {/* ═══ ANALYTICS TAB ═══ */}
+      {tab === 'analytics' && (
+        <PharmacyRevenueChart />
       )}
 
       {/* ═══ ADD/EDIT ITEM MODAL ═══ */}

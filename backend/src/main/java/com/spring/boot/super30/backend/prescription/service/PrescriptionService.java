@@ -35,18 +35,21 @@ public class PrescriptionService {
         private final PatientRepository patientRepository;
         private final DoctorRepository doctorRepository;
         private final SubscriptionService subscriptionService;
+        private final ReminderGenerationService reminderGenerationService;
 
         public PrescriptionService(
                 PrescriptionRepository prescriptionRepository,
                 PrescriptionVersionRepository prescriptionVersionRepository,
                 PatientRepository patientRepository,
                 DoctorRepository doctorRepository,
-                @Lazy SubscriptionService subscriptionService) {
+                @Lazy SubscriptionService subscriptionService,
+                ReminderGenerationService reminderGenerationService) {
                 this.prescriptionRepository = prescriptionRepository;
                 this.prescriptionVersionRepository = prescriptionVersionRepository;
                 this.patientRepository = patientRepository;
                 this.doctorRepository = doctorRepository;
                 this.subscriptionService = subscriptionService;
+                this.reminderGenerationService = reminderGenerationService;
         }
 
         public PrescriptionResponse createPrescription(
@@ -108,6 +111,9 @@ public class PrescriptionService {
 
                 log.debug("Saving active prescription to database");
                 Prescription saved = prescriptionRepository.save(savedPrescription);
+
+                reminderGenerationService.generateRemindersForMedicines(patient, saved.getCurrentVersion().getMedicines());
+
                 log.info("Successfully created prescription with ID: {}", saved.getId());
                 return convertToResponse(saved);
         }
@@ -140,6 +146,9 @@ public class PrescriptionService {
                 
                 log.debug("Saving updated prescription version to database");
                 Prescription saved = prescriptionRepository.save(prescription);
+
+                reminderGenerationService.generateRemindersForMedicines(saved.getPatient(), saved.getCurrentVersion().getMedicines());
+
                 log.info("Successfully updated prescription ID: {} to version {}", id, newVersionNumber);
                 return convertToResponse(saved);
         }

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, QrCode, X, CheckCircle2 } from 'lucide-react'
+import { Scanner } from '@yudiel/react-qr-scanner'
 import DashboardLayout from '../components/layout/DashboardLayout'
 import StatCard from '../components/ui/StatCard'
 import Badge from '../components/ui/Badge'
 import Avatar from '../components/ui/Avatar'
-import { getDoctorByEmail, getPrescriptionsByDoctor } from '../api/api'
+import { getDoctorByEmail, getPrescriptionsByDoctor, requestAccessOtp } from '../api/api'
 import { useAuth } from '../context/AuthContext'
 
 /** Normalise a backend Prescription entity into the shape the UI expects. */
@@ -40,6 +41,8 @@ export default function DoctorDashboard() {
   const [rxError, setRxError] = useState(null)
   const [loading, setLoading] = useState(true)
   const [doctorProfile, setDoctorProfile] = useState(null)
+  const [showScanner, setShowScanner] = useState(false)
+  const [scanSuccess, setScanSuccess] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -118,25 +121,40 @@ export default function DoctorDashboard() {
             Welcome back, <span className="text-slate-600 font-semibold">{user?.name}</span>
           </p>
         </div>
-        <Link
-          to={doctorProfile?.status === 'VERIFIED' ? "/new-rx" : "#"}
-          onClick={(e) => {
-            if (doctorProfile?.status !== 'VERIFIED') {
-              e.preventDefault();
-              alert("You must be verified by an admin to issue prescriptions.");
-            }
-          }}
-          className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white shadow-elev-1 transition-all duration-150 w-full sm:w-auto ${
-            doctorProfile?.status === 'VERIFIED' 
-              ? 'bg-navy-700 hover:bg-navy-800 hover:shadow-elev-2 active:scale-95' 
-              : 'bg-slate-400 cursor-not-allowed opacity-75'
-          }`}
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
-          </svg>
-          New Prescription
-        </Link>
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+          {doctorProfile?.status === 'VERIFIED' && (
+            <button
+              onClick={() => {
+                setShowScanner(true)
+                setScanSuccess(false)
+              }}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 shadow-sm transition-all active:scale-95 w-full sm:w-auto cursor-pointer"
+            >
+              <QrCode className="w-4 h-4" />
+              Scan Patient QR
+            </button>
+          )}
+          
+          <Link
+            to={doctorProfile?.status === 'VERIFIED' ? "/new-rx" : "#"}
+            onClick={(e) => {
+              if (doctorProfile?.status !== 'VERIFIED') {
+                e.preventDefault();
+                alert("You must be verified by an admin to issue prescriptions.");
+              }
+            }}
+            className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white shadow-elev-1 transition-all duration-150 w-full sm:w-auto ${
+              doctorProfile?.status === 'VERIFIED' 
+                ? 'bg-navy-700 hover:bg-navy-800 hover:shadow-elev-2 active:scale-95' 
+                : 'bg-slate-400 cursor-not-allowed opacity-75'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
+            </svg>
+            New Prescription
+          </Link>
+        </div>
       </div>
 
       {doctorProfile && doctorProfile.status !== 'VERIFIED' && (
@@ -263,6 +281,66 @@ export default function DoctorDashboard() {
           </div>
         )}
       </div>
+
+      {/* ── QR Scanner Modal ───────────────────────────────────── */}
+      {showScanner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden animate-[scaleIn_0.2s_ease-out] transform transition-all flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-900">Scan Patient QR</h3>
+              <button
+                onClick={() => setShowScanner(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-0 bg-black relative flex-1 min-h-[300px]">
+              {scanSuccess ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-teal-500 text-white z-10 p-6 text-center animate-[fadeIn_0.2s_ease-out]">
+                  <CheckCircle2 className="w-16 h-16 mb-4" />
+                  <h4 className="text-xl font-bold mb-2">Patient Detected!</h4>
+                  <p className="text-sm text-teal-50">OTP access request sent. Please ask the patient to check their portal for the code.</p>
+                </div>
+              ) : (
+                <Scanner
+                  onScan={async (result) => {
+                    if (result && result.length > 0) {
+                      try {
+                        const data = JSON.parse(result[0].rawValue)
+                        if (data.type === 'PATIENT_PROFILE' && data.patientId) {
+                          setScanSuccess(true)
+                          try {
+                            await requestAccessOtp(doctorProfile.doctorId, data.patientId)
+                          } catch (err) {
+                            console.error('Failed to request OTP:', err)
+                            alert('Failed to request OTP. Make sure you have valid credentials.')
+                            setScanSuccess(false)
+                          }
+                          setTimeout(() => {
+                            setShowScanner(false)
+                            setScanSuccess(false)
+                          }, 3000)
+                        }
+                      } catch (err) {
+                        // ignore invalid JSON
+                        console.warn("Scanned non-patient QR code", err)
+                      }
+                    }
+                  }}
+                  formats={['qr_code']}
+                  components={{ audio: false, finder: true }}
+                />
+              )}
+            </div>
+            <div className="p-4 bg-slate-50 border-t border-slate-100">
+              <p className="text-xs text-center text-slate-500">
+                Point your camera at the patient's QR code on their dashboard.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   )
 }

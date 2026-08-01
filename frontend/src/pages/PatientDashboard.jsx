@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, ArrowRight, Lock, Crown, ShieldAlert, Clock, Copy, CheckCircle2 } from 'lucide-react'
+import { Search, ArrowRight, Lock, Crown, ShieldAlert, Clock, Copy, CheckCircle2, QrCode, X } from 'lucide-react'
+import { QRCodeCanvas } from 'qrcode.react'
 import DashboardLayout from '../components/layout/DashboardLayout'
 import Badge from '../components/ui/Badge'
 import Avatar from '../components/ui/Avatar'
@@ -52,6 +53,7 @@ export default function PatientDashboard() {
   const [pendingOtp, setPendingOtp]           = useState(null)
   const [otpTimeLeft, setOtpTimeLeft]         = useState(0)
   const [otpCopied, setOtpCopied]             = useState(false)
+  const [showQR, setShowQR]                   = useState(false)
 
   useEffect(() => {
     // entityId is the patient UUID stored after registration
@@ -151,6 +153,15 @@ export default function PatientDashboard() {
             {user?.entityId && <span className="ml-2 text-xs font-mono bg-slate-100 px-2 py-0.5 rounded">ID: {user.entityId}</span>}
           </p>
         </div>
+        {user?.entityId && (
+          <button
+            onClick={() => setShowQR(true)}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-navy-700 hover:bg-navy-800 shadow-elev-1 transition-all active:scale-95 w-full sm:w-auto"
+          >
+            <QrCode className="w-4 h-4" />
+            Show My QR Code
+          </button>
+        )}
       </div>
 
       {/* ── Subscription Banner (only for free-tier users) ──── */}
@@ -346,6 +357,47 @@ export default function PatientDashboard() {
             </div>
           )}
         </>
+      )}
+
+      {/* ── QR Code Modal ───────────────────────────────────── */}
+      {showQR && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden animate-[scaleIn_0.2s_ease-out] transform transition-all">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-900">My Profile QR</h3>
+              <button
+                onClick={() => setShowQR(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-8 flex flex-col items-center">
+              <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm mb-6">
+                <QRCodeCanvas
+                  value={JSON.stringify({ type: 'PATIENT_PROFILE', patientId: user.entityId })}
+                  size={200}
+                  level="H"
+                  includeMargin={false}
+                />
+              </div>
+              <p className="text-sm font-medium text-slate-700 text-center mb-1">
+                Share this with your doctor
+              </p>
+              <p className="text-xs text-slate-500 text-center max-w-[240px]">
+                Scan this code at the clinic to instantly share your profile and request access.
+              </p>
+            </div>
+            <div className="px-5 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => setShowQR(false)}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </DashboardLayout>
   )

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, ChevronRight, Sparkles, AlertCircle } from "lucide-react";
+import { Check, ChevronRight, Sparkles, AlertCircle, Mic, Square, Loader2 } from "lucide-react";
 import DashboardLayout from "../components/layout/DashboardLayout";
 import { createPrescription, getPatientById } from "../api/api";
 import { useAuth } from "../context/AuthContext";
@@ -45,6 +45,12 @@ export default function UploadPrescription() {
   const [verifying, setVerifying] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Dictation States
+  const [isRecording, setIsRecording] = useState(false);
+  const [isProcessingAudio, setIsProcessingAudio] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState(null);
+  const audioChunks = useRef([]);
+
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
   const addMed = () => setMedicines((p) => [...p, { ...EMPTY_MED }]);
   const removeMed = (i) => setMedicines((p) => p.filter((_, idx) => idx !== i));
@@ -52,6 +58,79 @@ export default function UploadPrescription() {
     const newMeds = [...medicines];
     newMeds[i] = { ...newMeds[i], [k]: v };
     setMedicines(newMeds);
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunks.current = [];
+      
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunks.current.push(e.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
+        stream.getTracks().forEach(track => track.stop());
+        
+        setIsProcessingAudio(true);
+        try {
+          const formData = new FormData();
+          formData.append('file', audioBlob, 'dictation.webm');
+          
+          const res = await fetch('http://localhost:8000/api/dictate', {
+            method: 'POST',
+            body: formData,
+          });
+          
+          if (!res.ok) throw new Error('Failed to transcribe audio');
+          
+          const data = await res.json();
+          if (data.structured_data) {
+            const sd = data.structured_data;
+            if (sd.diagnosis) {
+               set("diagnosis", sd.diagnosis);
+            }
+            if (sd.medications && Array.isArray(sd.medications)) {
+               const newMeds = sd.medications.map(m => ({
+                 name: m.name || "",
+                 dosage: m.dosage || "",
+                 frequency: m.frequency || "",
+                 duration: m.duration || "",
+                 instructions: m.instructions || "",
+               }));
+               if (newMeds.length > 0) {
+                 setMedicines(newMeds);
+               }
+            }
+            if (sd.notes) {
+               set("notes", sd.notes);
+            }
+          }
+        } catch (err) {
+          setSubmitError(err.message || 'Error processing dictation');
+        } finally {
+          setIsProcessingAudio(false);
+        }
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      setSubmitError("");
+    } catch (err) {
+      setSubmitError("Microphone access denied or not available.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+      setIsRecording(false);
+    }
   };
 
   /**
@@ -194,6 +273,32 @@ export default function UploadPrescription() {
             New Prescription
           </h1>
         </div>
+        
+        {/* Dictate Button */}
+        {(step === 1 || step === 2) && (
+          <div className="flex items-center">
+            <button
+              type="button"
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={isProcessingAudio}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-elev-2 hover:shadow-elev-3 active:scale-95 ${
+                isRecording 
+                  ? "bg-red-50 text-red-600 border-2 border-red-200 animate-pulse" 
+                  : isProcessingAudio 
+                    ? "bg-slate-100 text-slate-500 cursor-wait" 
+                    : "bg-teal-600 text-white hover:bg-teal-700"
+              }`}
+            >
+              {isProcessingAudio ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Processing Audio...</>
+              ) : isRecording ? (
+                <><Square className="w-4 h-4 fill-current" /> Stop Dictating</>
+              ) : (
+                <><Mic className="w-4 h-4" /> Dictate Prescription</>
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="max-w-3xl pb-8">

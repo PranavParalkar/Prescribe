@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel
 import requests
 from io import BytesIO
@@ -214,4 +214,52 @@ async def extract_structured_text(req: OcrRequest):
 
     except Exception as e:
         print(f"Structured OCR Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/dictate")
+async def transcribe_audio(file: UploadFile = File(...)):
+    try:
+        print(f"Received audio dictation: {file.filename}")
+        
+        # We need to save the uploaded file temporarily so the openai client can read it
+        temp_audio_path = f"temp_{file.filename}"
+        try:
+            with open(temp_audio_path, "wb") as f:
+                f.write(await file.read())
+            
+            print(f"Saved temporary audio file to {temp_audio_path}")
+            
+            if not client:
+                raise Exception("Groq API key not configured.")
+
+            with open(temp_audio_path, "rb") as audio_f:
+                # Use Groq's whisper model
+                transcription = client.audio.transcriptions.create(
+                    model="whisper-large-v3",
+                    file=audio_f
+                )
+            
+            raw_text = transcription.text
+            print(f"Transcription complete: {len(raw_text)} chars")
+            
+            if not raw_text or len(raw_text.strip()) < 2:
+                return {
+                    "raw_text": raw_text,
+                    "structured_data": None
+                }
+
+            # Reuse the same Groq parser for the transcribed text
+            structured_data = parse_with_groq(raw_text)
+            
+            return {
+                "raw_text": raw_text,
+                "structured_data": structured_data
+            }
+        finally:
+            # Clean up temp file
+            if os.path.exists(temp_audio_path):
+                os.remove(temp_audio_path)
+
+    except Exception as e:
+        print(f"Dictation Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -6,3 +6,4 @@ requests==2.31.0
 pymupdf
 openai
 python-dotenv
+python-multipart

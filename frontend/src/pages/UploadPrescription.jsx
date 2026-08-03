@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, ChevronRight, Sparkles, AlertCircle, Mic, Square, Loader2 } from "lucide-react";
+import { Check, ChevronRight, Sparkles, AlertCircle, Mic, Square, Loader2, ShieldAlert, TriangleAlert } from "lucide-react";
 import DashboardLayout from "../components/layout/DashboardLayout";
 import { createPrescription, getPatientById } from "../api/api";
 import { useAuth } from "../context/AuthContext";
@@ -51,6 +51,11 @@ export default function UploadPrescription() {
   const [mediaRecorder, setMediaRecorder] = useState(null);
   const audioChunks = useRef([]);
 
+  // Drug Interaction States
+  const [interactionWarnings, setInteractionWarnings] = useState([]);
+  const [isCheckingInteractions, setIsCheckingInteractions] = useState(false);
+  const interactionTimer = useRef(null);
+
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
   const addMed = () => setMedicines((p) => [...p, { ...EMPTY_MED }]);
   const removeMed = (i) => setMedicines((p) => p.filter((_, idx) => idx !== i));
@@ -59,6 +64,39 @@ export default function UploadPrescription() {
     newMeds[i] = { ...newMeds[i], [k]: v };
     setMedicines(newMeds);
   };
+
+  // ── Drug Interaction Checker (debounced) ──────────────────────────────
+  const checkInteractions = useCallback(async (meds) => {
+    const names = meds.map(m => m.name.trim()).filter(n => n.length >= 2);
+    if (names.length < 2) {
+      setInteractionWarnings([]);
+      return;
+    }
+    setIsCheckingInteractions(true);
+    try {
+      const res = await fetch('http://localhost:8000/api/interactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ medications: names }),
+      });
+      if (!res.ok) throw new Error('Interaction check failed');
+      const data = await res.json();
+      setInteractionWarnings(data.warnings || []);
+    } catch (err) {
+      console.error('Interaction check error:', err);
+      setInteractionWarnings([]);
+    } finally {
+      setIsCheckingInteractions(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (interactionTimer.current) clearTimeout(interactionTimer.current);
+    interactionTimer.current = setTimeout(() => {
+      checkInteractions(medicines);
+    }, 1000);
+    return () => clearTimeout(interactionTimer.current);
+  }, [medicines, checkInteractions]);
 
   const startRecording = async () => {
     try {
@@ -456,6 +494,48 @@ export default function UploadPrescription() {
                 </p>
               </div>
               <div className="px-4 sm:px-7 pb-7 pt-6 flex flex-col gap-5 max-h-[calc(100vh-400px)] overflow-y-auto">
+                {/* Drug Interaction Warnings */}
+                {isCheckingInteractions && (
+                  <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-500 animate-pulse">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Checking for drug interactions…
+                  </div>
+                )}
+                {!isCheckingInteractions && interactionWarnings.length > 0 && (
+                  <div className="rounded-2xl border-2 border-red-200 bg-gradient-to-br from-red-50 to-orange-50 p-5 flex flex-col gap-3 shadow-elev-2 animate-in">
+                    <div className="flex items-center gap-2">
+                      <ShieldAlert className="w-5 h-5 text-red-600" />
+                      <span className="text-sm font-bold text-red-800">Drug Interaction Warning</span>
+                    </div>
+                    {interactionWarnings.map((w, idx) => (
+                      <div
+                        key={idx}
+                        className={`flex items-start gap-3 rounded-xl px-4 py-3 border ${
+                          w.severity === 'high'
+                            ? 'bg-red-100/80 border-red-300 text-red-900'
+                            : w.severity === 'moderate'
+                              ? 'bg-amber-100/80 border-amber-300 text-amber-900'
+                              : 'bg-yellow-50 border-yellow-200 text-yellow-900'
+                        }`}
+                      >
+                        <TriangleAlert className={`w-4 h-4 mt-0.5 shrink-0 ${
+                          w.severity === 'high' ? 'text-red-600' : w.severity === 'moderate' ? 'text-amber-600' : 'text-yellow-500'
+                        }`} />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-bold uppercase tracking-wider">
+                              {w.severity} severity
+                            </span>
+                            <span className="text-xs font-semibold">
+                              {w.drugs?.join(' + ')}
+                            </span>
+                          </div>
+                          <p className="text-xs leading-relaxed">{w.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {medicines.map((med, i) => (
                   <div
                     key={i}

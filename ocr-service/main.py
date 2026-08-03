@@ -263,3 +263,80 @@ async def transcribe_audio(file: UploadFile = File(...)):
     except Exception as e:
         print(f"Dictation Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Drug-Drug Interaction Checker
+# ─────────────────────────────────────────────────────────────────────────────
+
+INTERACTION_PROMPT = """You are a clinical pharmacology expert. Analyze the following list of medications and identify any clinically significant drug-drug interactions.
+
+Medications to check:
+{medications}
+
+Return ONLY a valid JSON object with this exact schema:
+
+{{
+  "interactions_found": true or false,
+  "warnings": [
+    {{
+      "drugs": ["Drug A", "Drug B"],
+      "severity": "high" or "moderate" or "low",
+      "description": "Brief clinical description of the interaction and its risk"
+    }}
+  ]
+}}
+
+Important rules:
+- Only report well-established, clinically significant interactions documented in pharmacology references.
+- Do NOT fabricate or speculate about interactions. If unsure, do not include it.
+- severity "high" = potentially life-threatening or requires avoidance (e.g., Warfarin + Aspirin bleeding risk).
+- severity "moderate" = may require dose adjustment or monitoring.
+- severity "low" = minor interaction, generally manageable.
+- If no interactions exist, return {{"interactions_found": false, "warnings": []}}.
+- Return ONLY the JSON. No markdown, no explanation, no code fences.
+"""
+
+
+class InteractionRequest(BaseModel):
+    medications: list[str]
+
+
+@app.post("/api/interactions")
+async def check_interactions(req: InteractionRequest):
+    try:
+        # Need at least 2 drugs to check interactions
+        drug_names = [m.strip() for m in req.medications if m.strip()]
+        if len(drug_names) < 2:
+            return {"interactions_found": False, "warnings": []}
+
+        if not client:
+            raise Exception("Groq API key not configured.")
+
+        medications_str = "\n".join(f"- {name}" for name in drug_names)
+        prompt = INTERACTION_PROMPT.replace("{medications}", medications_str)
+
+        print(f"Checking interactions for: {drug_names}")
+
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": "You are a clinical pharmacology expert. Always output strictly valid JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.1,
+            max_tokens=2048,
+            response_format={"type": "json_object"},
+        )
+
+        response_text = response.choices[0].message.content.strip()
+        parsed = json.loads(response_text)
+        print(f"Interaction check complete. Found: {parsed.get('interactions_found', False)}")
+        return parsed
+
+    except json.JSONDecodeError as e:
+        print(f"Groq returned invalid JSON for interaction check: {e}")
+        raise HTTPException(status_code=500, detail="Failed to parse interaction response")
+    except Exception as e:
+        print(f"Interaction Check Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

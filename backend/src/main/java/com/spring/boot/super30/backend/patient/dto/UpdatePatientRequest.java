@@ -23,4 +23,6 @@ public class UpdatePatientRequest {
     private String bloodGroup;
     private String address;
     private String profileImage; // Base64
+    private Boolean smsNotificationsEnabled;
+    private Boolean whatsappNotificationsEnabled;
 }

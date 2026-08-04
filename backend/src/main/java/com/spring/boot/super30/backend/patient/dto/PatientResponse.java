@@ -20,5 +20,7 @@ public class PatientResponse {
     private String gender;
     private String bloodGroup;
     private java.time.LocalDateTime createdAt;
+    private Boolean smsNotificationsEnabled;
+    private Boolean whatsappNotificationsEnabled;
 
 }

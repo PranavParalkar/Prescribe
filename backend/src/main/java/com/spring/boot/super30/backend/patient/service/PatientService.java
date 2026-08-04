@@ -48,6 +48,8 @@ public class PatientService {
             response.setPhone(patient.getUser().getPhone());
             response.setAddress(patient.getUser().getAddress());
             response.setProfileImage(patient.getUser().getProfileImage());
+            response.setSmsNotificationsEnabled(patient.getUser().getSmsNotificationsEnabled());
+            response.setWhatsappNotificationsEnabled(patient.getUser().getWhatsappNotificationsEnabled());
         }
         return response;
     }
@@ -93,6 +95,8 @@ public class PatientService {
             if (request.getPhone() != null) user.setPhone(request.getPhone());
             if (request.getAddress() != null) user.setAddress(request.getAddress());
             if (request.getProfileImage() != null) user.setProfileImage(request.getProfileImage());
+            if (request.getSmsNotificationsEnabled() != null) user.setSmsNotificationsEnabled(request.getSmsNotificationsEnabled());
+            if (request.getWhatsappNotificationsEnabled() != null) user.setWhatsappNotificationsEnabled(request.getWhatsappNotificationsEnabled());
             userRepository.save(user);
         }
 

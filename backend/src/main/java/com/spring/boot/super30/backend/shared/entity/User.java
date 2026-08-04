@@ -36,6 +36,9 @@ public class User {
 
     private Boolean isActive = true;
 
+    private Boolean smsNotificationsEnabled = true;
+    private Boolean whatsappNotificationsEnabled = false;
+
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @UpdateTimestamp

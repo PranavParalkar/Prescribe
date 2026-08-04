@@ -8,6 +8,7 @@ import Avatar from '../components/ui/Avatar'
 import StatCard from '../components/ui/StatCard'
 import SubscriptionBanner from '../components/ui/SubscriptionBanner'
 import PatientVitalsChart from '../components/charts/PatientVitalsChart'
+import MedicationReminders from '../components/ui/MedicationReminders'
 import { getPrescriptionsByPatient, getSubscriptionStatus, getPendingOtp } from '../api/api'
 import { useAuth } from '../context/AuthContext'
 
@@ -261,8 +262,15 @@ export default function PatientDashboard() {
             />
           </div>
 
-          {/* ── Health Insights Charts ──────────────────────────── */}
-          <PatientVitalsChart patientId={user?.entityId} />
+          {/* ── Health Insights Charts & Reminders ──────────────────────────── */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div className="lg:col-span-2">
+              <PatientVitalsChart patientId={user?.entityId} />
+            </div>
+            <div className="lg:col-span-1 h-full">
+              <MedicationReminders patientId={user?.entityId} />
+            </div>
+          </div>
 
           {/* ── Prescriptions list ─────────────────────────────── */}
           {prescriptions.length === 0 ? (

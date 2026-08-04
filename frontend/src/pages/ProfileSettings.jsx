@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { User as UserIcon, Phone, Mail, Award, Activity, Calendar, Save, Trash2, ShieldCheck, AlertCircle } from 'lucide-react'
+import { User as UserIcon, Phone, Mail, Award, Activity, Calendar, Save, Trash2, ShieldCheck, AlertCircle, Bell } from 'lucide-react'
 import DashboardLayout from '../components/layout/DashboardLayout'
 import { useAuth } from '../context/AuthContext'
 import { getDoctorByEmail, getPatientByEmail, updateDoctorProfile, updatePatientProfile, deleteDoctorProfile } from '../api/api'
@@ -47,7 +47,9 @@ export default function ProfileSettings() {
     gender: '',
     bloodGroup: '',
     address: '',
-    profileImage: ''
+    profileImage: '',
+    smsNotificationsEnabled: true,
+    whatsappNotificationsEnabled: false
   })
 
   useEffect(() => {
@@ -73,7 +75,9 @@ export default function ProfileSettings() {
             gender: data.gender || '',
             bloodGroup: data.bloodGroup || '',
             address: data.address || '',
-            profileImage: data.profileImage || ''
+            profileImage: data.profileImage || '',
+            smsNotificationsEnabled: data.smsNotificationsEnabled ?? true,
+            whatsappNotificationsEnabled: data.whatsappNotificationsEnabled ?? false
           })
           setLoading(false)
         }
@@ -90,11 +94,14 @@ export default function ProfileSettings() {
   }, [user.role, user.email])
 
   const handleChange = (e) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
+    const { name, value, type, checked } = e.target
+    const val = type === 'checkbox' ? checked : value
+    setFormData(prev => ({ ...prev, [name]: val }))
     // Real-time validation
-    const fieldError = validateField(name, value)
-    setFieldErrors(prev => ({ ...prev, [name]: fieldError }))
+    if (type !== 'checkbox') {
+      const fieldError = validateField(name, val)
+      setFieldErrors(prev => ({ ...prev, [name]: fieldError }))
+    }
     if (success) setSuccess(null)
   }
 
@@ -159,7 +166,9 @@ export default function ProfileSettings() {
           gender: formData.gender,
           bloodGroup: formData.bloodGroup,
           address: formData.address,
-          profileImage: formData.profileImage
+          profileImage: formData.profileImage,
+          smsNotificationsEnabled: formData.smsNotificationsEnabled,
+          whatsappNotificationsEnabled: formData.whatsappNotificationsEnabled
         })
       }
 
@@ -492,6 +501,55 @@ export default function ProfileSettings() {
                     </div>
                   )}
                 </div>
+
+                {!isDoctor && (
+                <div className="pt-8 border-t border-slate-50">
+                  <div className="flex items-center gap-2 mb-6">
+                    <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
+                      <Bell className="w-4 h-4 text-amber-500" />
+                    </div>
+                    <h3 className="text-base font-bold text-slate-800">
+                      Notification Preferences
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">SMS Reminders</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Receive reminders via Text Message</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          name="smsNotificationsEnabled"
+                          checked={formData.smsNotificationsEnabled}
+                          onChange={handleChange}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-500"></div>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">WhatsApp Reminders</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Receive reminders via WhatsApp</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          name="whatsappNotificationsEnabled"
+                          checked={formData.whatsappNotificationsEnabled}
+                          onChange={handleChange}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-500"></div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                )}
               </div>
 
               {/* Form Footer */}

@@ -13,6 +13,7 @@ import com.spring.boot.super30.backend.prescription.entity.PrescriptionMedicine;
 import com.spring.boot.super30.backend.prescription.entity.PrescriptionVersion;
 import com.spring.boot.super30.backend.prescription.repository.PrescriptionRepository;
 import com.spring.boot.super30.backend.prescription.repository.PrescriptionVersionRepository;
+import com.spring.boot.super30.backend.prescription.repository.MedicationReminderRepository;
 import com.spring.boot.super30.backend.shared.enums.PrescriptionStatus;
 import com.spring.boot.super30.backend.exception.custom.BadRequestException;
 import com.spring.boot.super30.backend.exception.custom.ResourceNotFoundException;
@@ -21,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -36,6 +38,7 @@ public class PrescriptionService {
         private final DoctorRepository doctorRepository;
         private final SubscriptionService subscriptionService;
         private final ReminderGenerationService reminderGenerationService;
+        private final MedicationReminderRepository medicationReminderRepository;
 
         public PrescriptionService(
                 PrescriptionRepository prescriptionRepository,
@@ -43,13 +46,15 @@ public class PrescriptionService {
                 PatientRepository patientRepository,
                 DoctorRepository doctorRepository,
                 @Lazy SubscriptionService subscriptionService,
-                ReminderGenerationService reminderGenerationService) {
+                ReminderGenerationService reminderGenerationService,
+                MedicationReminderRepository medicationReminderRepository) {
                 this.prescriptionRepository = prescriptionRepository;
                 this.prescriptionVersionRepository = prescriptionVersionRepository;
                 this.patientRepository = patientRepository;
                 this.doctorRepository = doctorRepository;
                 this.subscriptionService = subscriptionService;
                 this.reminderGenerationService = reminderGenerationService;
+                this.medicationReminderRepository = medicationReminderRepository;
         }
 
         public PrescriptionResponse createPrescription(
@@ -112,7 +117,7 @@ public class PrescriptionService {
                 log.debug("Saving active prescription to database");
                 Prescription saved = prescriptionRepository.save(savedPrescription);
 
-                reminderGenerationService.generateRemindersForMedicines(patient, saved.getCurrentVersion().getMedicines());
+                reminderGenerationService.generateRemindersForMedicines(patient, saved, saved.getCurrentVersion().getMedicines());
 
                 log.info("Successfully created prescription with ID: {}", saved.getId());
                 return convertToResponse(saved);
@@ -147,7 +152,7 @@ public class PrescriptionService {
                 log.debug("Saving updated prescription version to database");
                 Prescription saved = prescriptionRepository.save(prescription);
 
-                reminderGenerationService.generateRemindersForMedicines(saved.getPatient(), saved.getCurrentVersion().getMedicines());
+                reminderGenerationService.generateRemindersForMedicines(saved.getPatient(), saved, saved.getCurrentVersion().getMedicines());
 
                 log.info("Successfully updated prescription ID: {} to version {}", id, newVersionNumber);
                 return convertToResponse(saved);
@@ -171,6 +176,10 @@ public class PrescriptionService {
 
                 log.debug("Saving revoked prescription status to database");
                 Prescription saved = prescriptionRepository.save(prescription);
+                
+                log.debug("Deleting unsent reminders for revoked prescription");
+                medicationReminderRepository.deleteByPrescriptionAndSentFalse(saved);
+                
                 log.info("Successfully revoked prescription with ID: {}", id);
                 return convertToResponse(saved);
         }

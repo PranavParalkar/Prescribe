@@ -1,6 +1,7 @@
 package com.spring.boot.super30.backend.prescription.service;
 
 import com.spring.boot.super30.backend.patient.entity.Patient;
+import com.spring.boot.super30.backend.prescription.entity.Prescription;
 import com.spring.boot.super30.backend.prescription.entity.MedicationReminder;
 import com.spring.boot.super30.backend.prescription.entity.PrescriptionMedicine;
 import com.spring.boot.super30.backend.prescription.repository.MedicationReminderRepository;
@@ -23,7 +24,7 @@ public class ReminderGenerationService {
     private final MedicationReminderRepository medicationReminderRepository;
 
     @Async
-    public void generateRemindersForMedicines(Patient patient, List<PrescriptionMedicine> medicines) {
+    public void generateRemindersForMedicines(Patient patient, Prescription prescription, List<PrescriptionMedicine> medicines) {
         if (medicines == null || medicines.isEmpty()) {
             return;
         }
@@ -47,6 +48,7 @@ public class ReminderGenerationService {
 
                     MedicationReminder reminder = MedicationReminder.builder()
                             .patient(patient)
+                            .prescription(prescription)
                             .medicineName(medicine.getMedicineName())
                             .dosage(medicine.getDosage())
                             .scheduledTime(scheduledTime)

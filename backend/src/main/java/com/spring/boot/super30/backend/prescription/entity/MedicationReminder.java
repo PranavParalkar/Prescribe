@@ -31,6 +31,10 @@ public class MedicationReminder {
     @JoinColumn(nullable = false)
     private Patient patient;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "prescription_id")
+    private Prescription prescription;
+
     private String medicineName;
     private String dosage;
 

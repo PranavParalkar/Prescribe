@@ -576,3 +576,34 @@ export function getVitalRecords(patientId) {
 export function deleteVitalRecord(patientId, recordId) {
   return request('DELETE', `/api/patients/${patientId}/vitals/${recordId}`)
 }
+
+// ─── Reminders & Notifications ─────────────────────────────────────────────
+
+export function getUpcomingReminders(patientId) {
+  return request('GET', `/api/reminders/patient/${patientId}/upcoming`)
+}
+
+export function getTodayReminders(patientId) {
+  return request('GET', `/api/reminders/patient/${patientId}/today`)
+}
+
+export function getReminderHistory(patientId) {
+  return request('GET', `/api/reminders/patient/${patientId}/history`)
+}
+
+export function getNotifications(userId) {
+  return request('GET', `/api/notifications/user/${userId}`)
+}
+
+export function markNotificationRead(id) {
+  return request('PUT', `/api/notifications/${id}/read`)
+}
+
+export function markAllNotificationsRead(userId) {
+  return request('PUT', `/api/notifications/user/${userId}/read-all`)
+}
+
+export function getUnreadNotificationCount(userId) {
+  return request('GET', `/api/notifications/user/${userId}/unread-count`)
+}
+
